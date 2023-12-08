@@ -59,6 +59,47 @@ typedef void *AML_DATA_NODE_HANDLE;
 
 #endif // AML_HANDLE
 
+/** Memory attributes, _MEM (2 bits)
+
+  Possible values are:
+    0-The memory is non-cacheable
+    1-The memory is cacheable (DEPRECATED)
+    2-The memory is cacheable and supports
+      write combining (DEPRECATED)
+    3-The memory is cacheable and prefetchable
+
+  @par Reference(s):
+  - ACPI 6.5, s6.4.3.5.5 "Resource Type Specific Flags"
+
+**/
+typedef enum {
+  AmlMemoryNonCacheable          = 0,
+  AmlMemoryCacheable             = 1,
+  AmlMemoryCacheableWriteCombine = 2,
+  AmlMemoryCacheablePrefetch     = 3,
+  AmlMemoryCacheablityMax        = 4
+} AML_MEMORY_ATTRIBUTES_MEM;
+
+/** Memory attributes, _MTP (2 bits)
+
+  Possible values are:
+    0-AddressRangeMemory
+    1-AddressRangeReserved
+    2-AddressRangeACPI
+    3-AddressRangeNVS
+
+  @par Reference(s):
+  - ACPI 6.5, s6.4.3.5.5 "Resource Type Specific Flags"
+
+**/
+typedef enum {
+  AmlAddressRangeMemory   = 0,
+  AmlAddressRangeReserved = 1,
+  AmlAddressRangeACPI     = 2,
+  AmlAddressRangeNVS      = 3,
+  AmlAddressRangeMax      = 4
+} AML_MEMORY_ATTRIBUTES_MTP;
+
 /** Parse the definition block.
 
   The function parses the whole AML blob. It starts with the ACPI DSDT/SSDT
@@ -578,7 +619,7 @@ AmlCodeGenRdDWordMemory (
   IN        BOOLEAN IsPosDecode,
   IN        BOOLEAN IsMinFixed,
   IN        BOOLEAN IsMaxFixed,
-  IN        UINT8 Cacheable,
+  IN        AML_MEMORY_ATTRIBUTES_MEM Cacheable,
   IN        BOOLEAN IsReadWrite,
   IN        UINT32 AddressGranularity,
   IN        UINT32 AddressMinimum,
@@ -587,7 +628,7 @@ AmlCodeGenRdDWordMemory (
   IN        UINT32 RangeLength,
   IN        UINT8 ResourceSourceIndex,
   IN  CONST CHAR8 *ResourceSource,
-  IN        UINT8 MemoryRangeType,
+  IN        AML_MEMORY_ATTRIBUTES_MTP MemoryRangeType,
   IN        BOOLEAN IsTypeStatic,
   IN        AML_OBJECT_NODE_HANDLE NameOpNode, OPTIONAL
   OUT       AML_DATA_NODE_HANDLE    *NewRdNode  OPTIONAL
@@ -683,6 +724,73 @@ AmlCodeGenRdWordBusNumber (
   OUT       AML_DATA_NODE_HANDLE    *NewRdNode  OPTIONAL
   );
 
+/** Code generation for the "QWordIO ()" ASL function.
+
+  The Resource Data effectively created is a QWord Address Space Resource
+  Data. Cf ACPI 6.4:
+   - s6.4.3.5.1 "QWord Address Space Descriptor".
+   - s19.6.109 "QWordIO".
+
+  The created resource data node can be:
+   - appended to the list of resource data elements of the NameOpNode.
+     In such case NameOpNode must be defined by a the "Name ()" ASL statement
+     and initially contain a "ResourceTemplate ()".
+   - returned through the NewRdNode parameter.
+
+  See ACPI 6.4 spec, s19.6.109 for more.
+
+  @param [in]  IsResourceConsumer   ResourceUsage parameter.
+  @param [in]  IsMinFixed           Minimum address is fixed.
+  @param [in]  IsMaxFixed           Maximum address is fixed.
+  @param [in]  IsPosDecode          Decode parameter
+  @param [in]  IsaRanges            Possible values are:
+                                     0-Reserved
+                                     1-NonISAOnly
+                                     2-ISAOnly
+                                     3-EntireRange
+  @param [in]  AddressGranularity   Address granularity.
+  @param [in]  AddressMinimum       Minimum address.
+  @param [in]  AddressMaximum       Maximum address.
+  @param [in]  AddressTranslation   Address translation.
+  @param [in]  RangeLength          Range length.
+  @param [in]  ResourceSourceIndex  Resource Source index.
+                                    Unused. Must be 0.
+  @param [in]  ResourceSource       Resource Source.
+                                    Unused. Must be NULL.
+  @param [in]  IsDenseTranslation   TranslationDensity parameter.
+  @param [in]  IsTypeStatic         TranslationType parameter.
+  @param [in]  NameOpNode           NameOp object node defining a named object.
+                                    If provided, append the new resource data
+                                    node to the list of resource data elements
+                                    of this node.
+  @param [out] NewRdNode            If provided and success,
+                                    contain the created node.
+
+  @retval EFI_SUCCESS             The function completed successfully.
+  @retval EFI_INVALID_PARAMETER   Invalid parameter.
+  @retval EFI_OUT_OF_RESOURCES    Could not allocate memory.
+**/
+EFI_STATUS
+EFIAPI
+AmlCodeGenRdQWordIo (
+  IN        BOOLEAN IsResourceConsumer,
+  IN        BOOLEAN IsMinFixed,
+  IN        BOOLEAN IsMaxFixed,
+  IN        BOOLEAN IsPosDecode,
+  IN        UINT8 IsaRanges,
+  IN        UINT64 AddressGranularity,
+  IN        UINT64 AddressMinimum,
+  IN        UINT64 AddressMaximum,
+  IN        UINT64 AddressTranslation,
+  IN        UINT64 RangeLength,
+  IN        UINT8 ResourceSourceIndex,
+  IN  CONST CHAR8 *ResourceSource,
+  IN        BOOLEAN IsDenseTranslation,
+  IN        BOOLEAN IsTypeStatic,
+  IN        AML_OBJECT_NODE_HANDLE NameOpNode, OPTIONAL
+  OUT       AML_DATA_NODE_HANDLE    *NewRdNode  OPTIONAL
+  );
+
 /** Code generation for the "QWordMemory ()" ASL function.
 
   The Resource Data effectively created is a QWord Address Space Resource
@@ -742,7 +850,7 @@ AmlCodeGenRdQWordMemory (
   IN        BOOLEAN IsPosDecode,
   IN        BOOLEAN IsMinFixed,
   IN        BOOLEAN IsMaxFixed,
-  IN        UINT8 Cacheable,
+  IN        AML_MEMORY_ATTRIBUTES_MEM Cacheable,
   IN        BOOLEAN IsReadWrite,
   IN        UINT64 AddressGranularity,
   IN        UINT64 AddressMinimum,
@@ -751,7 +859,7 @@ AmlCodeGenRdQWordMemory (
   IN        UINT64 RangeLength,
   IN        UINT8 ResourceSourceIndex,
   IN  CONST CHAR8 *ResourceSource,
-  IN        UINT8 MemoryRangeType,
+  IN        AML_MEMORY_ATTRIBUTES_MTP MemoryRangeType,
   IN        BOOLEAN IsTypeStatic,
   IN        AML_OBJECT_NODE_HANDLE NameOpNode, OPTIONAL
   OUT       AML_DATA_NODE_HANDLE    *NewRdNode  OPTIONAL
@@ -958,6 +1066,37 @@ AmlCodeGenNameResourceTemplate (
   OUT       AML_OBJECT_NODE_HANDLE  *NewObjectNode   OPTIONAL
   );
 
+/** AML code generation for a Name object node, containing a String.
+
+  AmlCodeGenNameUnicodeString ("_STR", L"String", ParentNode, NewObjectNode) is
+  equivalent of the following ASL code:
+    Name(_STR, Unicode ("String"))
+
+  @ingroup CodeGenApis
+
+  @param  [in] NameString     The new variable name.
+                              Must be a NULL-terminated ASL NameString
+                              e.g.: "DEV0", "DV15.DEV0", etc.
+                              The input string is copied.
+  @param [in]  String         NULL terminated Unicode String to associate to the
+                              NameString.
+  @param [in]  ParentNode     If provided, set ParentNode as the parent
+                              of the node created.
+  @param [out] NewObjectNode  If success, contains the created node.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   Invalid parameter.
+  @retval EFI_OUT_OF_RESOURCES    Failed to allocate memory.
+**/
+EFI_STATUS
+EFIAPI
+AmlCodeGenNameUnicodeString (
+  IN  CONST CHAR8                   *NameString,
+  IN        CHAR16                  *String,
+  IN        AML_NODE_HANDLE         ParentNode      OPTIONAL,
+  OUT       AML_OBJECT_NODE_HANDLE  *NewObjectNode   OPTIONAL
+  );
+
 /** Add a _PRT entry.
 
   AmlCodeGenPrtEntry (0x0FFFF, 0, "LNKA", 0, PrtNameNode) is
@@ -1033,6 +1172,34 @@ AmlAddPrtEntry (
 EFI_STATUS
 EFIAPI
 AmlCodeGenDevice (
+  IN  CONST CHAR8                   *NameString,
+  IN        AML_NODE_HANDLE         ParentNode      OPTIONAL,
+  OUT       AML_OBJECT_NODE_HANDLE  *NewObjectNode   OPTIONAL
+  );
+
+/** AML code generation for a ThermalZone object node.
+
+  AmlCodeGenThermalZone ("TZ00", ParentNode, NewObjectNode) is
+  equivalent of the following ASL code:
+    ThermalZone(TZ00) {}
+
+  @ingroup CodeGenApis
+
+  @param  [in] NameString     The new ThermalZone's name.
+                              Must be a NULL-terminated ASL NameString
+                              e.g.: "DEV0", "DV15.DEV0", etc.
+                              The input string is copied.
+  @param [in]  ParentNode     If provided, set ParentNode as the parent
+                              of the node created.
+  @param [out] NewObjectNode  If success, contains the created node.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   Invalid parameter.
+  @retval EFI_OUT_OF_RESOURCES    Failed to allocate memory.
+**/
+EFI_STATUS
+EFIAPI
+AmlCodeGenThermalZone (
   IN  CONST CHAR8                   *NameString,
   IN        AML_NODE_HANDLE         ParentNode      OPTIONAL,
   OUT       AML_OBJECT_NODE_HANDLE  *NewObjectNode   OPTIONAL
@@ -1162,6 +1329,60 @@ AmlCodeGenMethodRetInteger (
   IN        UINT8                   NumArgs,
   IN        BOOLEAN                 IsSerialized,
   IN        UINT8                   SyncLevel,
+  IN        AML_NODE_HANDLE         ParentNode           OPTIONAL,
+  OUT       AML_OBJECT_NODE_HANDLE  *NewObjectNode        OPTIONAL
+  );
+
+/** AML code generation for a method returning a NameString that takes an
+    integer argument.
+
+  AmlCodeGenMethodRetNameStringIntegerArgument (
+    "MET0", "MET1", 1, TRUE, 3, 5, ParentNode, NewObjectNode
+    );
+  is equivalent of the following ASL code:
+    Method(MET0, 1, Serialized, 3) {
+      Return (MET1 (5))
+    }
+
+  The ASL parameters "ReturnType" and "ParameterTypes" are not asked
+  in this function. They are optional parameters in ASL.
+
+  @param [in]  MethodNameString     The new Method's name.
+                                    Must be a NULL-terminated ASL NameString
+                                    e.g.: "MET0", "_SB.MET0", etc.
+                                    The input string is copied.
+  @param [in]  ReturnedNameString   The name of the object returned by the
+                                    method. Optional parameter, can be:
+                                     - NULL (ignored).
+                                     - A NULL-terminated ASL NameString.
+                                       e.g.: "MET0", "_SB.MET0", etc.
+                                       The input string is copied.
+  @param [in]  NumArgs              Number of arguments.
+                                    Must be 0 <= NumArgs <= 6.
+  @param [in]  IsSerialized         TRUE is equivalent to Serialized.
+                                    FALSE is equivalent to NotSerialized.
+                                    Default is NotSerialized in ASL spec.
+  @param [in]  SyncLevel            Synchronization level for the method.
+                                    Must be 0 <= SyncLevel <= 15.
+                                    Default is 0 in ASL.
+  @param [in]  IntegerArgument      Argument to pass to the NameString.
+  @param [in]  ParentNode           If provided, set ParentNode as the parent
+                                    of the node created.
+  @param [out] NewObjectNode        If success, contains the created node.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   Invalid parameter.
+  @retval EFI_OUT_OF_RESOURCES    Failed to allocate memory.
+**/
+EFI_STATUS
+EFIAPI
+AmlCodeGenMethodRetNameStringIntegerArgument (
+  IN  CONST CHAR8                   *MethodNameString,
+  IN  CONST CHAR8                   *ReturnedNameString   OPTIONAL,
+  IN        UINT8                   NumArgs,
+  IN        BOOLEAN                 IsSerialized,
+  IN        UINT8                   SyncLevel,
+  IN        UINT64                  IntegerArgument,
   IN        AML_NODE_HANDLE         ParentNode           OPTIONAL,
   OUT       AML_OBJECT_NODE_HANDLE  *NewObjectNode        OPTIONAL
   );
@@ -1388,6 +1609,23 @@ AmlCreateCpcNode (
   IN  AML_CPC_INFO            *CpcInfo,
   IN  AML_NODE_HANDLE         ParentNode   OPTIONAL,
   OUT AML_OBJECT_NODE_HANDLE  *NewCpcNode   OPTIONAL
+  );
+
+/** AML code generation to add a NameString to the package in a named node.
+
+
+  @param [in]  NameString     NameString to add
+  @param [in]  NamedNode      Node to add the string to the included package.
+
+  @retval EFI_SUCCESS             Success.
+  @retval EFI_INVALID_PARAMETER   Invalid parameter.
+  @retval EFI_OUT_OF_RESOURCES    Failed to allocate memory.
+**/
+EFI_STATUS
+EFIAPI
+AmlAddNameStringToNamedPackage (
+  IN CHAR8                   *NameString,
+  IN AML_OBJECT_NODE_HANDLE  NamedNode
   );
 
 #endif // AML_LIB_H_

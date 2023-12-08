@@ -182,6 +182,11 @@ RiscVSetSupervisorAddressTranslationRegister (
   );
 
 UINT64
+RiscVGetSupervisorAddressTranslationRegister (
+  VOID
+  );
+
+UINT64
 RiscVReadTimer (
   VOID
   );
@@ -4593,6 +4598,11 @@ CalculateCrc16Ansi (
   IN  UINTN       Length,
   IN  UINT16      InitialValue
   );
+
+//
+// Initial value for the CRC16-ANSI algorithm, when no prior checksum has been calculated.
+//
+#define CRC16ANSI_INIT  0xffff
 
 /**
    Calculates the CRC32c checksum of the given buffer.
