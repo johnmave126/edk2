@@ -43,5 +43,15 @@
   MdePkg/Library/BaseLib/UnitTestHostBaseLib.inf
   MdePkg/Test/Mock/Library/GoogleTest/MockUefiLib/MockUefiLib.inf
   MdePkg/Test/Mock/Library/GoogleTest/MockUefiRuntimeServicesTableLib/MockUefiRuntimeServicesTableLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockUefiBootServicesTableLib/MockUefiBootServicesTableLib.inf
   MdePkg/Test/Mock/Library/GoogleTest/MockPeiServicesLib/MockPeiServicesLib.inf
   MdePkg/Test/Mock/Library/GoogleTest/MockHobLib/MockHobLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockFdtLib/MockFdtLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockPostCodeLib/MockPostCodeLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockSmmServicesTableLib/MockSmmServicesTableLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockCpuLib/MockCpuLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockPciSegmentLib/MockPciSegmentLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockReportStatusCodeLib/MockReportStatusCodeLib.inf
+  MdePkg/Test/Mock/Library/GoogleTest/MockSafeIntLib/MockSafeIntLib.inf
+
+  MdePkg/Library/StackCheckLibNull/StackCheckLibNullHostApplication.inf

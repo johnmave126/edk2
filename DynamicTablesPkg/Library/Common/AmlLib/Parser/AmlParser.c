@@ -100,8 +100,7 @@ AmlParseStream (
 **/
 typedef
 EFI_STATUS
-EFIAPI
-(*AML_PARSE_FUNCTION) (
+(EFIAPI *AML_PARSE_FUNCTION)(
   IN      CONST AML_NODE_HEADER   *Node,
   IN            AML_PARSE_FORMAT  ExpectedFormat,
   IN  OUT       AML_STREAM        *FStream,
@@ -331,7 +330,7 @@ AmlParseString (
   StrSize = 0;
   // AML String is NULL terminated.
   do {
-    // Reading the stream moves the stream forward aswell.
+    // Reading the stream moves the stream forward as well.
     Status = AmlStreamReadByte (FStream, &Byte);
     if (EFI_ERROR (Status)) {
       ASSERT (0);

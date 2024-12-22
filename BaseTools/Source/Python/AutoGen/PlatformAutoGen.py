@@ -190,9 +190,9 @@ class PlatformAutoGen(AutoGen):
                     Ma.CreateMakeFile(CreateModuleMakeFile, FfsCommand[key])
                 else:
                     Ma.CreateMakeFile(CreateModuleMakeFile)
-        self.CreateLibModuelDirs()
+        self.CreateLibModuleDirs()
 
-    def CreateLibModuelDirs(self):
+    def CreateLibModuleDirs(self):
         # No need to create makefile for the platform more than once.
         if self.MakeFileName:
             return
@@ -707,6 +707,8 @@ class PlatformAutoGen(AutoGen):
         self._DynamicPcdList.extend(list(OtherPcdArray))
         self._DynamicPcdList.sort()
         allskuset = [(SkuName, Sku.SkuId) for pcd in self._DynamicPcdList for (SkuName, Sku) in pcd.SkuInfoList.items()]
+        # Remove duplicate sets in the list
+        allskuset = list(set(allskuset))
         for pcd in self._DynamicPcdList:
             if len(pcd.SkuInfoList) == 1:
                 for (SkuName, SkuId) in allskuset:

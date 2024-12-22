@@ -139,6 +139,10 @@
   MdePkg/Library/JedecJep106Lib/JedecJep106Lib.inf
   MdePkg/Library/BaseFdtLib/BaseFdtLib.inf
 
+  MdePkg/Library/StackCheckFailureHookLibNull/StackCheckFailureHookLibNull.inf
+  MdePkg/Library/StackCheckLibNull/StackCheckLibNull.inf
+  MdePkg/Library/StackCheckLib/StackCheckLibStaticInit.inf
+
 [Components.IA32, Components.X64, Components.ARM, Components.AARCH64]
   #
   # Add UEFI Target Based Unit Tests
@@ -193,11 +197,14 @@
 
 [Components.ARM, Components.AARCH64]
   MdePkg/Library/BaseIoLibIntrinsic/BaseIoLibIntrinsicArmVirt.inf
-  MdePkg/Library/BaseStackCheckLib/BaseStackCheckLib.inf
+  MdePkg/Library/CompilerIntrinsicsLib/CompilerIntrinsicsLib.inf
 
 [Components.RISCV64]
   MdePkg/Library/BaseRiscVSbiLib/BaseRiscVSbiLib.inf
   MdePkg/Library/BaseSerialPortLibRiscVSbiLib/BaseSerialPortLibRiscVSbiLib.inf
   MdePkg/Library/BaseSerialPortLibRiscVSbiLib/BaseSerialPortLibRiscVSbiLibRam.inf
+
+[Components.LOONGARCH64]
+  MdePkg/Library/PeiServicesTablePointerLibKs0/PeiServicesTablePointerLibKs0.inf
 
 [BuildOptions]

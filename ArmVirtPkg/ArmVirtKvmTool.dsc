@@ -84,7 +84,7 @@
   HwInfoParserLib|DynamicTablesPkg/Library/FdtHwInfoParserLib/FdtHwInfoParserLib.inf
   DynamicPlatRepoLib|DynamicTablesPkg/Library/Common/DynamicPlatRepoLib/DynamicPlatRepoLib.inf
 
-  ArmMonitorLib|ArmPkg/Library/ArmMonitorLib/ArmMonitorLib.inf
+  ArmMonitorLib|ArmVirtPkg/Library/ArmVirtMonitorLib/ArmVirtMonitorLib.inf
   ArmTrngLib|ArmPkg/Library/ArmTrngLib/ArmTrngLib.inf
 
 [LibraryClasses.common.SEC, LibraryClasses.common.PEI_CORE, LibraryClasses.common.PEIM]
@@ -126,8 +126,6 @@
   # Use MMIO for accessing RTC controller registers.
   gPcAtChipsetPkgTokenSpaceGuid.PcdRtcUseMmio|TRUE
 
-  gArmTokenSpaceGuid.PcdMonitorConduitHvc|TRUE
-
 [PcdsFixedAtBuild.common]
   gEfiMdePkgTokenSpaceGuid.PcdDebugPrintErrorLevel|0x8000000F
 
@@ -148,11 +146,6 @@
   # TTY Terminal Type
   # 0-PCANSI, 1-VT100, 2-VT00+, 3-UTF8, 4-TTYTERM
   gEfiMdePkgTokenSpaceGuid.PcdDefaultTerminalType|4
-
-  #
-  # ARM Virtual Architectural Timer -- fetch frequency from KVM
-  #
-  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|0
 
   # Use MMIO for accessing Serial port registers.
   gEfiMdeModulePkgTokenSpaceGuid.PcdSerialUseMmio|TRUE
@@ -179,7 +172,7 @@
   # We are booting from RAM using the Linux kernel boot protocol,
   # x0 will point to the DTB image in memory.
   #
-  gArmVirtTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress|0x0
+  gUefiOvmfPkgTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress|0x0
 
   gArmTokenSpaceGuid.PcdFdBaseAddress|0x0
   gArmTokenSpaceGuid.PcdFvBaseAddress|0x0
@@ -251,7 +244,7 @@
   ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {
     <LibraryClasses>
       ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
-      LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
+      NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
       PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
       HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
       PrePiHobListPointerLib|ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf
@@ -372,20 +365,20 @@
   #
   # PCI support
   #
-  ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf {
+  UefiCpuPkg/CpuMmio2Dxe/CpuMmio2Dxe.inf {
     <LibraryClasses>
       NULL|OvmfPkg/Fdt/FdtPciPcdProducerLib/FdtPciPcdProducerLib.inf
-      NULL|OvmfPkg/Library/BaseCachingPciExpressLib/BaseCachingPciExpressLib.inf
+      PciExpressLib|OvmfPkg/Library/BaseCachingPciExpressLib/BaseCachingPciExpressLib.inf
   }
   MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf {
     <LibraryClasses>
       NULL|OvmfPkg/Fdt/FdtPciPcdProducerLib/FdtPciPcdProducerLib.inf
-      NULL|OvmfPkg/Library/BaseCachingPciExpressLib/BaseCachingPciExpressLib.inf
+      PciExpressLib|OvmfPkg/Library/BaseCachingPciExpressLib/BaseCachingPciExpressLib.inf
   }
   MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf {
     <LibraryClasses>
       NULL|OvmfPkg/Fdt/FdtPciPcdProducerLib/FdtPciPcdProducerLib.inf
-      NULL|OvmfPkg/Library/BaseCachingPciExpressLib/BaseCachingPciExpressLib.inf
+      PciExpressLib|OvmfPkg/Library/BaseCachingPciExpressLib/BaseCachingPciExpressLib.inf
   }
   OvmfPkg/VirtioPciDeviceDxe/VirtioPciDeviceDxe.inf
   OvmfPkg/Virtio10Dxe/Virtio10.inf

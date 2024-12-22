@@ -53,7 +53,8 @@ SecGetPlatformData (
   FSP_PLAT_DATA  *FspPlatformData;
   UINT32         TopOfCar;
   UINT32         *StackPtr;
-  UINT32         DwordSize;
+  UINT32         DataSize;
+  UINT32         TemporaryRamSize;
 
   FspPlatformData = &FspData->PlatformData;
 
@@ -67,12 +68,20 @@ SecGetPlatformData (
   FspPlatformData->MicrocodeRegionSize = 0;
   FspPlatformData->CodeRegionBase      = 0;
   FspPlatformData->CodeRegionSize      = 0;
+  TemporaryRamSize                     = 0;
 
   //
   // Pointer to the size field
   //
   TopOfCar = PcdGet32 (PcdTemporaryRamBase) + PcdGet32 (PcdTemporaryRamSize);
   StackPtr = (UINT32 *)(TopOfCar - sizeof (UINT32));
+  if ((*(StackPtr - 1) != FSP_MCUD_SIGNATURE) && (FspData->FspInfoHeader->ImageAttribute & BIT4)) {
+    ReadTemporaryRamSize (PcdGet32 (PcdTemporaryRamBase), &TemporaryRamSize);
+    if (TemporaryRamSize) {
+      TopOfCar = PcdGet32 (PcdTemporaryRamBase) + TemporaryRamSize;
+      StackPtr = (UINT32 *)(TopOfCar - sizeof (UINT32));
+    }
+  }
 
   if (*(StackPtr - 1) == FSP_MCUD_SIGNATURE) {
     while (*StackPtr != 0) {
@@ -80,22 +89,21 @@ SecGetPlatformData (
         //
         // This following data was pushed onto stack after TempRamInit API
         //
-        DwordSize = 4;
-        StackPtr  = StackPtr - 1 - DwordSize;
-        CopyMem (&(FspPlatformData->MicrocodeRegionBase), StackPtr, (DwordSize << 2));
-        StackPtr--;
+        DataSize  = *(StackPtr);
+        DataSize  = DataSize / sizeof (DataSize);
+        StackPtr -= DataSize;
+        CopyMem (&(FspPlatformData->MicrocodeRegionBase), StackPtr + 1, 4 * sizeof (UINTN));
       } else if (*(StackPtr - 1) == FSP_PER0_SIGNATURE) {
         //
         // This is the performance data for InitTempMemory API entry/exit
         //
-        DwordSize = 4;
-        StackPtr  = StackPtr - 1 - DwordSize;
-        CopyMem (FspData->PerfData, StackPtr, (DwordSize << 2));
+        DataSize  = *(StackPtr);
+        DataSize  = DataSize / sizeof (DataSize);
+        StackPtr -= DataSize;
+        CopyMem (FspData->PerfData, StackPtr + 1, 2 * sizeof (UINT64)); // Copy from the end of the PER0 data
 
         ((UINT8 *)(&FspData->PerfData[0]))[7] = FSP_PERF_ID_API_TEMP_RAM_INIT_ENTRY;
         ((UINT8 *)(&FspData->PerfData[1]))[7] = FSP_PERF_ID_API_TEMP_RAM_INIT_EXIT;
-
-        StackPtr--;
       } else {
         StackPtr -= (*StackPtr);
       }

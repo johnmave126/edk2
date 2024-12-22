@@ -203,6 +203,8 @@ EFI_HANDLE            gDxeCoreImageHandle = NULL;
 
 BOOLEAN  gMemoryMapTerminated = FALSE;
 
+static BOOLEAN  mExitBootServicesCalled = FALSE;
+
 //
 // EFI Decompress Protocol
 //
@@ -277,16 +279,10 @@ DxeMain (
   MemoryProfileInit (HobStart);
 
   //
-  // Allocate the EFI System Table and EFI Runtime Service Table from EfiRuntimeServicesData
-  // Use the templates to initialize the contents of the EFI System Table and EFI Runtime Services Table
+  // Start the Handle Services.
   //
-  gDxeCoreST = AllocateRuntimeCopyPool (sizeof (EFI_SYSTEM_TABLE), &mEfiSystemTableTemplate);
-  ASSERT (gDxeCoreST != NULL);
-
-  gDxeCoreRT = AllocateRuntimeCopyPool (sizeof (EFI_RUNTIME_SERVICES), &mEfiRuntimeServicesTableTemplate);
-  ASSERT (gDxeCoreRT != NULL);
-
-  gDxeCoreST->RuntimeServices = gDxeCoreRT;
+  Status = CoreInitializeHandleServices ();
+  ASSERT_EFI_ERROR (Status);
 
   //
   // Start the Image Services.
@@ -299,6 +295,23 @@ DxeMain (
   //
   Status = CoreInitializeGcdServices (&HobStart, MemoryBaseAddress, MemoryLength);
   ASSERT_EFI_ERROR (Status);
+
+  //
+  // Allocate the EFI System Table and EFI Runtime Service Table from EfiRuntimeServicesData
+  // Use the templates to initialize the contents of the EFI System Table and EFI Runtime Services Table
+  //
+  gDxeCoreST = AllocateRuntimeCopyPool (sizeof (EFI_SYSTEM_TABLE), &mEfiSystemTableTemplate);
+  ASSERT (gDxeCoreST != NULL);
+
+  gDxeCoreRT = AllocateRuntimeCopyPool (sizeof (EFI_RUNTIME_SERVICES), &mEfiRuntimeServicesTableTemplate);
+  ASSERT (gDxeCoreRT != NULL);
+
+  gDxeCoreST->RuntimeServices = gDxeCoreRT;
+
+  //
+  // Update DXE Core Loaded Image Protocol with allocated UEFI System Table
+  //
+  gDxeCoreLoadedImage->SystemTable = gDxeCoreST;
 
   //
   // Call constructor for all libraries
@@ -449,6 +462,11 @@ DxeMain (
   //
   Status = CoreInitializeEventServices ();
   ASSERT_EFI_ERROR (Status);
+
+  //
+  // Give the debug agent a chance to initialize with events.
+  //
+  InitializeDebugAgent (DEBUG_AGENT_INIT_DXE_CORE_LATE, HobStart, NULL);
 
   MemoryProfileInstallProtocol ();
 
@@ -767,7 +785,10 @@ CoreExitBootServices (
   // Notify other drivers of their last chance to use boot services
   // before the memory map is terminated.
   //
-  CoreNotifySignalList (&gEfiEventBeforeExitBootServicesGuid);
+  if (!mExitBootServicesCalled) {
+    CoreNotifySignalList (&gEfiEventBeforeExitBootServicesGuid);
+    mExitBootServicesCalled = TRUE;
+  }
 
   //
   // Disable Timer

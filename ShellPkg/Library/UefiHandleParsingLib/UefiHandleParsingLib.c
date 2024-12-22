@@ -299,6 +299,9 @@ LoadedImageProtocolDumpInformation (
 
     SHELL_FREE_NON_NULL (Temp);
     SHELL_FREE_NON_NULL (FileName);
+    if (RetVal == NULL) {
+      return NULL;
+    }
   }
 
   Temp = HiiGetString (mHandleParsingHiiHandle, STRING_TOKEN (STR_LI_DUMP_MAIN), NULL);
@@ -309,24 +312,25 @@ LoadedImageProtocolDumpInformation (
   PdbFileName = PeCoffLoaderGetPdbPointer (LoadedImage->ImageBase);
   DataType    = ConvertMemoryType (LoadedImage->ImageDataType);
   CodeType    = ConvertMemoryType (LoadedImage->ImageCodeType);
-
-  RetVal = CatSPrint (
-             RetVal,
-             Temp,
-             LoadedImage->Revision,
-             LoadedImage->ParentHandle,
-             LoadedImage->SystemTable,
-             LoadedImage->DeviceHandle,
-             FilePath,
-             PdbFileName,
-             LoadedImage->LoadOptionsSize,
-             LoadedImage->LoadOptions,
-             LoadedImage->ImageBase,
-             LoadedImage->ImageSize,
-             CodeType,
-             DataType,
-             LoadedImage->Unload
-             );
+  if ((PdbFileName != NULL) && (DataType != NULL) && (CodeType != NULL) && (FilePath != NULL)) {
+    RetVal = CatSPrint (
+               RetVal,
+               Temp,
+               LoadedImage->Revision,
+               LoadedImage->ParentHandle,
+               LoadedImage->SystemTable,
+               LoadedImage->DeviceHandle,
+               FilePath,
+               PdbFileName,
+               LoadedImage->LoadOptionsSize,
+               LoadedImage->LoadOptions,
+               LoadedImage->ImageBase,
+               LoadedImage->ImageSize,
+               CodeType,
+               DataType,
+               LoadedImage->Unload
+               );
+  }
 
   SHELL_FREE_NON_NULL (Temp);
   SHELL_FREE_NON_NULL (FilePath);
@@ -389,6 +393,10 @@ GraphicsOutputProtocolDumpInformation (
   }
 
   Fmt = ConvertPixelFormat (GraphicsOutput->Mode->Info->PixelFormat);
+  if (Fmt == NULL) {
+    SHELL_FREE_NON_NULL (Temp);
+    return NULL;
+  }
 
   RetVal = CatSPrint (
              NULL,
@@ -409,6 +417,9 @@ GraphicsOutputProtocolDumpInformation (
              );
 
   SHELL_FREE_NON_NULL (Temp);
+  if (RetVal == NULL) {
+    goto EXIT;
+  }
 
   Temp = HiiGetString (mHandleParsingHiiHandle, STRING_TOKEN (STR_GOP_RES_LIST_MAIN), NULL);
   if (Temp == NULL) {
@@ -509,6 +520,9 @@ EdidDiscoveredProtocolDumpInformation (
 
   RetVal = CatSPrint (NULL, Temp, EdidDiscovered->SizeOfEdid);
   SHELL_FREE_NON_NULL (Temp);
+  if (RetVal == NULL) {
+    return NULL;
+  }
 
   if (EdidDiscovered->SizeOfEdid != 0) {
     Temp = HiiGetString (mHandleParsingHiiHandle, STRING_TOKEN (STR_EDID_DISCOVERED_DATA), NULL);
@@ -575,6 +589,9 @@ EdidActiveProtocolDumpInformation (
 
   RetVal = CatSPrint (NULL, Temp, EdidActive->SizeOfEdid);
   SHELL_FREE_NON_NULL (Temp);
+  if (RetVal == NULL) {
+    return NULL;
+  }
 
   if (EdidActive->SizeOfEdid != 0) {
     Temp = HiiGetString (mHandleParsingHiiHandle, STRING_TOKEN (STR_EDID_ACTIVE_DATA), NULL);
@@ -790,6 +807,9 @@ TxtOutProtocolDumpInformation (
 
   Size   = (Dev->Mode->MaxMode + 1) * 80;
   RetVal = AllocateZeroPool (Size);
+  if (RetVal == NULL) {
+    return NULL;
+  }
 
   Temp = HiiGetString (mHandleParsingHiiHandle, STRING_TOKEN (STR_TXT_OUT_DUMP_HEADER), NULL);
   if (Temp != NULL) {
@@ -801,6 +821,11 @@ TxtOutProtocolDumpInformation (
   // Dump TextOut Info
   //
   Temp = HiiGetString (mHandleParsingHiiHandle, STRING_TOKEN (STR_TXT_OUT_DUMP_LINE), NULL);
+  if (Temp == NULL) {
+    FreePool (RetVal);
+    return NULL;
+  }
+
   for (Index = 0; Index < Dev->Mode->MaxMode; Index++) {
     Status  = Dev->QueryMode (Dev, Index, &Col, &Row);
     NewSize = Size - StrSize (RetVal);
@@ -1056,6 +1081,10 @@ BusSpecificDriverOverrideProtocolDumpInformation (
                        ConvertHandleToHandleIndex (ImageHandle),
                        ConvertDevicePathToText (LoadedImage->FilePath, TRUE, TRUE)
                        );
+        if (TempRetVal == NULL) {
+          break;
+        }
+
         StrnCatGrow (&RetVal, &Size, TempRetVal, 0);
         SHELL_FREE_NON_NULL (TempRetVal);
       }
@@ -1287,6 +1316,11 @@ PciIoProtocolDumpInformation (
              Pci.Hdr.ClassCode[1],
              Pci.Hdr.ClassCode[2]
              );
+  if (RetVal == NULL) {
+    FreePool (GetString);
+    return NULL;
+  }
+
   for (Index = 0; Index < sizeof (Pci); Index++) {
     if ((Index % 0x10) == 0) {
       TempRetVal = CatSPrint (RetVal, L"\r\n       %02x", *((UINT8 *)(&Pci) + Index));
@@ -1435,6 +1469,10 @@ AdapterInformationDumpInformation (
     }
 
     RetVal = CatSPrint (NULL, TempStr);
+    if (RetVal == NULL) {
+      goto ERROR_EXIT;
+    }
+
     SHELL_FREE_NON_NULL (TempStr);
 
     for (GuidIndex = 0; GuidIndex < InfoTypesBufferCount; GuidIndex++) {
@@ -1726,6 +1764,10 @@ FirmwareManagementDumpInformation (
     }
 
     RetVal = CatSPrint (NULL, TempStr, ImageInfoSize);
+    if (RetVal == NULL) {
+      goto ERROR_EXIT;
+    }
+
     SHELL_FREE_NON_NULL (TempStr);
 
     //
@@ -1823,37 +1865,65 @@ FirmwareManagementDumpInformation (
       } else {
         AttributeSettingStr = CatSPrint (NULL, L"(");
 
+        if (AttributeSettingStr == NULL) {
+          goto ERROR_EXIT;
+        }
+
         if ((AttributeSetting & IMAGE_ATTRIBUTE_IMAGE_UPDATABLE) != 0x0) {
           TempRetVal = CatSPrint (AttributeSettingStr, L" IMAGE_ATTRIBUTE_IMAGE_UPDATABLE");
+          if (TempRetVal == NULL) {
+            goto ERROR_EXIT;
+          }
+
           SHELL_FREE_NON_NULL (AttributeSettingStr);
           AttributeSettingStr = TempRetVal;
         }
 
         if ((AttributeSetting & IMAGE_ATTRIBUTE_RESET_REQUIRED) != 0x0) {
           TempRetVal = CatSPrint (AttributeSettingStr, L" IMAGE_ATTRIBUTE_RESET_REQUIRED");
+          if (TempRetVal == NULL) {
+            goto ERROR_EXIT;
+          }
+
           SHELL_FREE_NON_NULL (AttributeSettingStr);
           AttributeSettingStr = TempRetVal;
         }
 
         if ((AttributeSetting & IMAGE_ATTRIBUTE_AUTHENTICATION_REQUIRED) != 0x0) {
           TempRetVal = CatSPrint (AttributeSettingStr, L" IMAGE_ATTRIBUTE_AUTHENTICATION_REQUIRED");
+          if (TempRetVal == NULL) {
+            goto ERROR_EXIT;
+          }
+
           SHELL_FREE_NON_NULL (AttributeSettingStr);
           AttributeSettingStr = TempRetVal;
         }
 
         if ((AttributeSetting & IMAGE_ATTRIBUTE_IN_USE) != 0x0) {
           TempRetVal = CatSPrint (AttributeSettingStr, L" IMAGE_ATTRIBUTE_IN_USE");
+          if (TempRetVal == NULL) {
+            goto ERROR_EXIT;
+          }
+
           SHELL_FREE_NON_NULL (AttributeSettingStr);
           AttributeSettingStr = TempRetVal;
         }
 
         if ((AttributeSetting & IMAGE_ATTRIBUTE_UEFI_IMAGE) != 0x0) {
           TempRetVal = CatSPrint (AttributeSettingStr, L" IMAGE_ATTRIBUTE_UEFI_IMAGE");
+          if (TempRetVal == NULL) {
+            goto ERROR_EXIT;
+          }
+
           SHELL_FREE_NON_NULL (AttributeSettingStr);
           AttributeSettingStr = TempRetVal;
         }
 
         TempRetVal = CatSPrint (AttributeSettingStr, L" )");
+        if (TempRetVal == NULL) {
+          goto ERROR_EXIT;
+        }
+
         SHELL_FREE_NON_NULL (AttributeSettingStr);
         AttributeSettingStr = TempRetVal;
       }
@@ -2549,7 +2619,7 @@ Function to add a new GUID/Name mapping.
 @param[in] DumpFunc   The pointer to the dump function
 
 
-@retval EFI_SUCCESS           The operation was sucessful
+@retval EFI_SUCCESS           The operation was successful
 @retval EFI_OUT_OF_RESOURCES  A memory allocation failed
 @retval EFI_INVALID_PARAMETER Guid NameId was invalid
 **/
@@ -2595,7 +2665,7 @@ InsertNewGuidNameMapping (
   @param[in] TheName    The Guid's name
   @param[in] Lang       RFC4646 language code list or NULL
 
-  @retval EFI_SUCCESS           The operation was sucessful
+  @retval EFI_SUCCESS           The operation was successful
   @retval EFI_ACCESS_DENIED     There was a duplicate
   @retval EFI_OUT_OF_RESOURCES  A memory allocation failed
   @retval EFI_INVALID_PARAMETER Guid or TheName was NULL
@@ -2708,7 +2778,7 @@ GetProtocolInformationDump (
   @param[in] Lang           The pointer to the language code.
   @param[out] Guid          The pointer to the Guid.
 
-  @retval EFI_SUCCESS       The operation was sucessful.
+  @retval EFI_SUCCESS       The operation was successful.
 **/
 EFI_STATUS
 EFIAPI
@@ -2848,7 +2918,11 @@ GetStringNameFromHandle (
                   );
   if (!EFI_ERROR (Status)) {
     BestLang = GetBestLanguageForDriver (CompNameStruct->SupportedLanguages, Language, FALSE);
-    Status   = CompNameStruct->GetDriverName (CompNameStruct, BestLang, &RetVal);
+    if (BestLang == NULL) {
+      return (NULL);
+    }
+
+    Status = CompNameStruct->GetDriverName (CompNameStruct, BestLang, &RetVal);
     if (BestLang != NULL) {
       FreePool (BestLang);
       BestLang = NULL;
@@ -2869,7 +2943,11 @@ GetStringNameFromHandle (
                   );
   if (!EFI_ERROR (Status)) {
     BestLang = GetBestLanguageForDriver (CompNameStruct->SupportedLanguages, Language, FALSE);
-    Status   = CompNameStruct->GetDriverName (CompNameStruct, BestLang, &RetVal);
+    if (BestLang == NULL) {
+      return (NULL);
+    }
+
+    Status = CompNameStruct->GetDriverName (CompNameStruct, BestLang, &RetVal);
     if (BestLang != NULL) {
       FreePool (BestLang);
     }
@@ -3312,7 +3390,7 @@ ParseHandleDatabaseByRelationshipWithType (
   If both DriverBindingHandle and ControllerHandle are NULL, then ASSERT.
   If MatchingHandleCount is NULL, then ASSERT.
 
-  If MatchingHandleBuffer is not NULL upon a sucessful return the memory must be
+  If MatchingHandleBuffer is not NULL upon a successful return the memory must be
   caller freed.
 
   @param[in] DriverBindingHandle    Handle to a object with Driver Binding protocol
@@ -3321,10 +3399,10 @@ ParseHandleDatabaseByRelationshipWithType (
   @param[in] Mask                   Mask of what relationship(s) is desired.
   @param[in] MatchingHandleCount    Poitner to UINTN specifying number of HANDLES in
                                     MatchingHandleBuffer.
-  @param[out] MatchingHandleBuffer  On a sucessful return a buffer of MatchingHandleCount
+  @param[out] MatchingHandleBuffer  On a successful return a buffer of MatchingHandleCount
                                     EFI_HANDLEs and a terminating NULL EFI_HANDLE.
 
-  @retval EFI_SUCCESS               The operation was sucessful and any related handles
+  @retval EFI_SUCCESS               The operation was successful and any related handles
                                     are in MatchingHandleBuffer;
   @retval EFI_NOT_FOUND             No matching handles were found.
   @retval EFI_INVALID_PARAMETER     A parameter was invalid or out of range.
@@ -3450,7 +3528,7 @@ ParseHandleDatabaseByRelationship (
                                     return.
 
 
-  @retval EFI_SUCCESS               The operation was sucessful.
+  @retval EFI_SUCCESS               The operation was successful.
 **/
 EFI_STATUS
 EFIAPI
@@ -3613,7 +3691,7 @@ BuffernCatGrow (
                                     MatchingHandleBuffer on return.
   @param[out] MatchingHandleBuffer  Buffer containing handles on a successful
                                     return.
-  @retval EFI_SUCCESS               The operation was sucessful.
+  @retval EFI_SUCCESS               The operation was successful.
   @sa ParseHandleDatabaseByRelationship
 **/
 EFI_STATUS

@@ -79,10 +79,10 @@ typedef struct {
 
   @param[in]      Index     The boot or driver option index update.
   @param[in]      DataSize  The size in bytes of Data.
-  @param[in]      Data      The buffer for the optioanl data.
+  @param[in]      Data      The buffer for the optional data.
   @param[in]      Target    The target of the operation.
 
-  @retval EFI_SUCCESS       The data was sucessfully updated.
+  @retval EFI_SUCCESS       The data was successfully updated.
   @retval other             A error occurred.
 **/
 EFI_STATUS
@@ -99,6 +99,7 @@ UpdateOptionalData (
   UINT8       *OriginalData;
   UINTN       NewSize;
   UINT8       *NewData;
+  UINTN       TmpSize;
   UINTN       OriginalOptionDataSize;
 
   UnicodeSPrint (VariableName, sizeof (VariableName), L"%s%04x", Target == BcfgTargetBootOrder ? L"Boot" : L"Driver", Index);
@@ -135,11 +136,14 @@ UpdateOptionalData (
     // Allocate new struct and discard old optional data.
     //
     ASSERT (OriginalData != NULL);
-    OriginalOptionDataSize  = sizeof (UINT32) + sizeof (UINT16) + StrSize (((CHAR16 *)(OriginalData + sizeof (UINT32) + sizeof (UINT16))));
-    OriginalOptionDataSize += (*(UINT16 *)(OriginalData + sizeof (UINT32)));
-    OriginalOptionDataSize -= OriginalSize;
-    NewSize                 = OriginalSize - OriginalOptionDataSize + DataSize;
-    NewData                 = AllocatePool (NewSize);
+    // Length of Attributes, FilePathListLength, Description fields
+    TmpSize = sizeof (UINT32) + sizeof (UINT16) + StrSize (((CHAR16 *)(OriginalData + sizeof (UINT32) + sizeof (UINT16))));
+    // Length of FilePathList field
+    TmpSize += (*(UINT16 *)(OriginalData + sizeof (UINT32)));
+    // What remains is the original OptionalData field
+    OriginalOptionDataSize = OriginalSize - TmpSize;
+    NewSize                = OriginalSize - OriginalOptionDataSize + DataSize;
+    NewData                = AllocatePool (NewSize);
     if (NewData == NULL) {
       Status = EFI_OUT_OF_RESOURCES;
     } else {
@@ -172,7 +176,7 @@ UpdateOptionalData (
   @param[in, out] Crc         The CRC value to return.
   @param[in]      BootIndex   The boot option index to CRC.
 
-  @retval EFI_SUCCESS           The CRC was sucessfully returned.
+  @retval EFI_SUCCESS           The CRC was successfully returned.
   @retval other                 A error occurred.
 **/
 EFI_STATUS
@@ -202,6 +206,10 @@ GetBootOptionCrc (
                   );
   if (Status == EFI_BUFFER_TOO_SMALL) {
     Buffer = AllocateZeroPool (BufferSize);
+    if (Buffer == NULL) {
+      return EFI_OUT_OF_RESOURCES;
+    }
+
     Status = gRT->GetVariable (
                     VariableName,
                     (EFI_GUID *)&gEfiGlobalVariableGuid,
@@ -226,9 +234,9 @@ GetBootOptionCrc (
   This function will populate the device path protocol parameter based on TheHandle.
 
   @param[in]      TheHandle     Driver handle.
-  @param[in, out] FilePath      On a sucessful return the device path to the handle.
+  @param[in, out] FilePath      On a successful return the device path to the handle.
 
-  @retval EFI_SUCCESS           The device path was sucessfully returned.
+  @retval EFI_SUCCESS           The device path was successfully returned.
   @retval other                 A error from gBS->HandleProtocol.
 
   @sa HandleProtocol
@@ -284,11 +292,11 @@ GetDevicePathForDriverHandle (
 }
 
 /**
-  Functino to get Device Path by a handle.
+  Function to get Device Path by a handle.
 
   @param[in]        TheHandle   Use it to get DevicePath.
   @param[in]        Target      Boot option target.
-  @param[in, out]   DevicePath  On a sucessful return the device path to the handle.
+  @param[in, out]   DevicePath  On a successful return the device path to the handle.
 
   @retval   SHELL_INVALID_PARAMETER The handle was NULL.
   @retval   SHELL_NOT_FOUND         Not found device path by handle.
@@ -423,7 +431,12 @@ BcfgMod (
   }
 
   if (BcfgOperation->Type == BcfgTypeModh) {
-    CurHandle   = ConvertHandleIndexToHandle (BcfgOperation->HandleIndex);
+    CurHandle = ConvertHandleIndexToHandle (BcfgOperation->HandleIndex);
+    if (CurHandle == NULL) {
+      ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_PARAM_INV), gShellBcfgHiiHandle, L"bcfg", L"Handle Number");
+      return (SHELL_INVALID_PARAMETER);
+    }
+
     ShellStatus = GetDevicePathByHandle (CurHandle, BcfgOperation->Target, &DevicePathBuffer);
     if (ShellStatus == SHELL_SUCCESS) {
       DevicePath = DuplicateDevicePath (DevicePathBuffer);
@@ -506,7 +519,12 @@ BcfgMod (
       LoadOption.Description = AllocateCopyPool (StrSize (BcfgOperation->Description), BcfgOperation->Description);
     } else {
       SHELL_FREE_NON_NULL (LoadOption.FilePath);
-      LoadOption.FilePath = DuplicateDevicePath (DevicePath);
+      if (DevicePath != NULL) {
+        LoadOption.FilePath = DuplicateDevicePath (DevicePath);
+      } else {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (SHELL_OUT_OF_RESOURCES), gShellBcfgHiiHandle, L"bcfg", OptionStr);
+        goto Done;
+      }
     }
 
     Status = EfiBootManagerLoadOptionToVariable (&LoadOption);
@@ -517,6 +535,8 @@ BcfgMod (
   }
 
   EfiBootManagerFreeLoadOption (&LoadOption);
+
+Done:
 
   if (DevicePath != NULL) {
     FreePool (DevicePath);
@@ -781,10 +801,17 @@ BcfgAdd (
     //
     // Add the option
     //
-    DescSize     = StrSize (Desc);
-    FilePathSize = GetDevicePathSize (FilePath);
+    DescSize = StrSize (Desc);
+    if (FilePath == NULL) {
+      ASSERT (FilePath != NULL);
+      ShellStatus    = SHELL_UNSUPPORTED;
+      TempByteBuffer = NULL;
+    } else {
+      FilePathSize = GetDevicePathSize (FilePath);
 
-    TempByteBuffer = AllocateZeroPool (sizeof (UINT32) + sizeof (UINT16) + DescSize + FilePathSize);
+      TempByteBuffer = AllocateZeroPool (sizeof (UINT32) + sizeof (UINT16) + DescSize + FilePathSize);
+    }
+
     if (TempByteBuffer != NULL) {
       TempByteStart               = TempByteBuffer;
       *((UINT32 *)TempByteBuffer) = LOAD_OPTION_ACTIVE;       // Attributes
@@ -870,7 +897,7 @@ BcfgAdd (
 }
 
 /**
-  Funciton to remove an item.
+  Function to remove an item.
 
   @param[in] Target         The target item to move.
   @param[in] CurrentOrder   The pointer to the current order of items.
@@ -934,7 +961,7 @@ BcfgRemove (
 }
 
 /**
-  Funciton to move a item to another location.
+  Function to move a item to another location.
 
   @param[in] Target         The target item to move.
   @param[in] CurrentOrder   The pointer to the current order of items.
@@ -1020,7 +1047,7 @@ BcfgAddOpt (
   SHELL_STATUS    ShellStatus;
   EFI_STATUS      Status;
   UINT16          OptionIndex;
-  UINT16          LoopCounter;
+  UINT32          LoopCounter;
   UINT64          Intermediate;
   CONST CHAR16    *Temp;
   CONST CHAR16    *Walker;
@@ -1089,7 +1116,13 @@ BcfgAddOpt (
       }
 
       Temp2 = StrStr (FileName, L"\"");
-      ASSERT (Temp2 != NULL);
+      if (Temp2 == NULL) {
+        ASSERT (Temp2 != NULL);
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_PARAM_INV), gShellBcfgHiiHandle, L"bcfg", Walker);
+        ShellStatus = SHELL_INVALID_PARAMETER;
+        return (ShellStatus);
+      }
+
       Temp2[0] = CHAR_NULL;
       Temp2++;
       if (StrLen (Temp2) > 0) {
@@ -1359,6 +1392,12 @@ BcfgDisplayDump (
                     );
     if (Status == EFI_BUFFER_TOO_SMALL) {
       Buffer = AllocateZeroPool (BufferSize);
+      if (Buffer == NULL) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_NO_MEM), gShellBcfgHiiHandle, L"bcfg");
+        ++Errors;
+        goto Cleanup;
+      }
+
       Status = gRT->GetVariable (
                       VariableName,
                       (EFI_GUID *)&gEfiGlobalVariableGuid,
@@ -1399,6 +1438,11 @@ BcfgDisplayDump (
     if (LoadOption->FilePathListLength != 0) {
       FilePathList  = (UINT8 *)Description + DescriptionSize;
       DevPathString = ConvertDevicePathToText (FilePathList, TRUE, FALSE);
+      if (DevPathString == NULL) {
+        ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_NO_MEM), gShellBcfgHiiHandle, L"bcfg");
+        ++Errors;
+        goto Cleanup;
+      }
     }
 
     OptionalDataOffset = sizeof *LoadOption + DescriptionSize +
@@ -1586,6 +1630,12 @@ ShellCommandRunBcfg (
     if ((ShellStatus == SHELL_SUCCESS) && (CurrentOperation.Target < BcfgTargetMax)) {
       for (ParamNumber = 2; ParamNumber < ShellCommandLineGetCount (Package) && ShellStatus == SHELL_SUCCESS; ParamNumber++) {
         CurrentParam = ShellCommandLineGetRawValue (Package, ParamNumber);
+        if (CurrentParam == NULL) {
+          ShellPrintHiiEx (-1, -1, NULL, STRING_TOKEN (STR_GEN_PARAM_INV), gShellBcfgHiiHandle, L"bcfg", L"NULL");
+          ShellStatus = SHELL_INVALID_PARAMETER;
+          goto Done;
+        }
+
         if (gUnicodeCollation->StriColl (gUnicodeCollation, (CHAR16 *)CurrentParam, L"dump") == 0) {
           CurrentOperation.Type = BcfgTypeDump;
           if (ShellCommandLineGetCount (Package) > 3) {
@@ -1879,6 +1929,8 @@ ShellCommandRunBcfg (
     }
   }
 
+Done:
+
   if (Package != NULL) {
     ShellCommandLineFreeVarList (Package);
   }
@@ -1921,7 +1973,7 @@ ShellCommandGetManFileNameBcfg (
   @param[in] SystemTable    the EFI System Table pointer
   @param[in] Name           the profile name to use
 
-  @retval EFI_SUCCESS        the shell command handlers were installed sucessfully
+  @retval EFI_SUCCESS        the shell command handlers were installed successfully
   @retval EFI_UNSUPPORTED    the shell level required was not found.
 **/
 EFI_STATUS

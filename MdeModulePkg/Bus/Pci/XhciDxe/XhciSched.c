@@ -1192,8 +1192,11 @@ XhcCheckUrbResult (
         DEBUG ((DEBUG_ERROR, "XhcCheckUrbResult: ERR_BUFFER! Completecode = %x\n", EvtTrb->Completecode));
         goto EXIT;
 
+      //
+      // Based on XHCI spec 4.8.3, software should do the reset endpoint while USB Transaction occur.
+      //
       case TRB_COMPLETION_USB_TRANSACTION_ERROR:
-        CheckedUrb->Result  |= EFI_USB_ERR_TIMEOUT;
+        CheckedUrb->Result  |= EDKII_USB_ERR_TRANSACTION;
         CheckedUrb->Finished = TRUE;
         DEBUG ((DEBUG_ERROR, "XhcCheckUrbResult: TRANSACTION_ERROR! Completecode = %x\n", EvtTrb->Completecode));
         goto EXIT;
@@ -2162,6 +2165,7 @@ XhcInitializeDeviceSlot (
   DEVICE_CONTEXT              *ParentDeviceContext;
   EFI_PHYSICAL_ADDRESS        PhyAddr;
 
+  EvtTrb = NULL;
   ZeroMem (&CmdTrb, sizeof (CMD_TRB_ENABLE_SLOT));
   CmdTrb.CycleBit = 1;
   CmdTrb.Type     = TRB_TYPE_EN_SLOT;
@@ -2172,7 +2176,7 @@ XhcInitializeDeviceSlot (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcInitializeDeviceSlot: Enable Slot Failed, Status = %r\n", Status));
     return Status;
   }
@@ -2387,6 +2391,7 @@ XhcInitializeDeviceSlot64 (
   DEVICE_CONTEXT_64           *ParentDeviceContext;
   EFI_PHYSICAL_ADDRESS        PhyAddr;
 
+  EvtTrb = NULL;
   ZeroMem (&CmdTrb, sizeof (CMD_TRB_ENABLE_SLOT));
   CmdTrb.CycleBit = 1;
   CmdTrb.Type     = TRB_TYPE_EN_SLOT;
@@ -2397,7 +2402,7 @@ XhcInitializeDeviceSlot64 (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcInitializeDeviceSlot64: Enable Slot Failed, Status = %r\n", Status));
     return Status;
   }
@@ -2599,6 +2604,8 @@ XhcDisableSlotCmd (
   UINT8                 Index;
   VOID                  *RingSeg;
 
+  EvtTrb = NULL;
+
   //
   // Disable the device slots occupied by these devices on its downstream ports.
   // Entry 0 is reserved.
@@ -2634,7 +2641,7 @@ XhcDisableSlotCmd (
                              XHC_GENERIC_TIMEOUT,
                              (TRB_TEMPLATE **)(UINTN)&EvtTrb
                              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcDisableSlotCmd: Disable Slot Command Failed, Status = %r\n", Status));
     return Status;
   }
@@ -2710,6 +2717,8 @@ XhcDisableSlotCmd64 (
   UINT8                 Index;
   VOID                  *RingSeg;
 
+  EvtTrb = NULL;
+
   //
   // Disable the device slots occupied by these devices on its downstream ports.
   // Entry 0 is reserved.
@@ -2745,7 +2754,7 @@ XhcDisableSlotCmd64 (
                              XHC_GENERIC_TIMEOUT,
                              (TRB_TEMPLATE **)(UINTN)&EvtTrb
                              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcDisableSlotCmd: Disable Slot Command Failed, Status = %r\n", Status));
     return Status;
   }
@@ -2839,7 +2848,7 @@ XhcInitializeEndpointContext (
     MaxDci = 1;
   }
 
-  EpDesc = (USB_ENDPOINT_DESCRIPTOR *)(IfDesc + 1);
+  EpDesc = (USB_ENDPOINT_DESCRIPTOR *)((UINTN)IfDesc + IfDesc->Length);
   for (EpIndex = 0; EpIndex < NumEp; EpIndex++) {
     while (EpDesc->DescriptorType != USB_DESC_TYPE_ENDPOINT) {
       EpDesc = (USB_ENDPOINT_DESCRIPTOR *)((UINTN)EpDesc + EpDesc->Length);
@@ -3042,7 +3051,7 @@ XhcInitializeEndpointContext64 (
     MaxDci = 1;
   }
 
-  EpDesc = (USB_ENDPOINT_DESCRIPTOR *)(IfDesc + 1);
+  EpDesc = (USB_ENDPOINT_DESCRIPTOR *)((UINTN)IfDesc + IfDesc->Length);
   for (EpIndex = 0; EpIndex < NumEp; EpIndex++) {
     while (EpDesc->DescriptorType != USB_DESC_TYPE_ENDPOINT) {
       EpDesc = (USB_ENDPOINT_DESCRIPTOR *)((UINTN)EpDesc + EpDesc->Length);
@@ -3237,6 +3246,8 @@ XhcSetConfigCmd (
   DEVICE_CONTEXT              *OutputContext;
   EVT_TRB_COMMAND_COMPLETION  *EvtTrb;
 
+  EvtTrb = NULL;
+
   //
   // 4.6.6 Configure Endpoint
   //
@@ -3249,7 +3260,7 @@ XhcSetConfigCmd (
 
   MaxDci = 0;
 
-  IfDesc = (USB_INTERFACE_DESCRIPTOR *)(ConfigDesc + 1);
+  IfDesc = (USB_INTERFACE_DESCRIPTOR *)((UINTN)ConfigDesc + ConfigDesc->Length);
   for (Index = 0; Index < ConfigDesc->NumInterfaces; Index++) {
     while ((IfDesc->DescriptorType != USB_DESC_TYPE_INTERFACE) || (IfDesc->AlternateSetting != 0)) {
       IfDesc = (USB_INTERFACE_DESCRIPTOR *)((UINTN)IfDesc + IfDesc->Length);
@@ -3287,7 +3298,7 @@ XhcSetConfigCmd (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcSetConfigCmd: Config Endpoint Failed, Status = %r\n", Status));
   } else {
     Xhc->UsbDevContext[SlotId].ActiveConfiguration = ConfigDesc->ConfigurationValue;
@@ -3328,6 +3339,8 @@ XhcSetConfigCmd64 (
   DEVICE_CONTEXT_64           *OutputContext;
   EVT_TRB_COMMAND_COMPLETION  *EvtTrb;
 
+  EvtTrb = NULL;
+
   //
   // 4.6.6 Configure Endpoint
   //
@@ -3340,7 +3353,7 @@ XhcSetConfigCmd64 (
 
   MaxDci = 0;
 
-  IfDesc = (USB_INTERFACE_DESCRIPTOR *)(ConfigDesc + 1);
+  IfDesc = (USB_INTERFACE_DESCRIPTOR *)((UINTN)ConfigDesc + ConfigDesc->Length);
   for (Index = 0; Index < ConfigDesc->NumInterfaces; Index++) {
     while ((IfDesc->DescriptorType != USB_DESC_TYPE_INTERFACE) || (IfDesc->AlternateSetting != 0)) {
       IfDesc = (USB_INTERFACE_DESCRIPTOR *)((UINTN)IfDesc + IfDesc->Length);
@@ -3378,7 +3391,7 @@ XhcSetConfigCmd64 (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcSetConfigCmd64: Config Endpoint Failed, Status = %r\n", Status));
   } else {
     Xhc->UsbDevContext[SlotId].ActiveConfiguration = ConfigDesc->ConfigurationValue;
@@ -3413,6 +3426,8 @@ XhcStopEndpoint (
   CMD_TRB_STOP_ENDPOINT       CmdTrbStopED;
 
   DEBUG ((DEBUG_VERBOSE, "XhcStopEndpoint: Slot = 0x%x, Dci = 0x%x\n", SlotId, Dci));
+
+  EvtTrb = NULL;
 
   //
   // When XhcCheckUrbResult waits for the Stop_Endpoint completion, it also checks
@@ -3451,7 +3466,7 @@ XhcStopEndpoint (
                             XHC_GENERIC_TIMEOUT,
                             (TRB_TEMPLATE **)(UINTN)&EvtTrb
                             );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcStopEndpoint: Stop Endpoint Failed, Status = %r\n", Status));
   }
 
@@ -3485,6 +3500,8 @@ XhcResetEndpoint (
 
   DEBUG ((DEBUG_INFO, "XhcResetEndpoint: Slot = 0x%x, Dci = 0x%x\n", SlotId, Dci));
 
+  EvtTrb = NULL;
+
   //
   // Send stop endpoint command to transit Endpoint from running to stop state
   //
@@ -3499,7 +3516,7 @@ XhcResetEndpoint (
                              XHC_GENERIC_TIMEOUT,
                              (TRB_TEMPLATE **)(UINTN)&EvtTrb
                              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcResetEndpoint: Reset Endpoint Failed, Status = %r\n", Status));
   }
 
@@ -3535,11 +3552,13 @@ XhcSetTrDequeuePointer (
 
   DEBUG ((DEBUG_VERBOSE, "XhcSetTrDequeuePointer: Slot = 0x%x, Dci = 0x%x, Urb = 0x%x\n", SlotId, Dci, Urb));
 
+  EvtTrb = NULL;
+
   //
   // Send stop endpoint command to transit Endpoint from running to stop state
   //
   ZeroMem (&CmdSetTRDeq, sizeof (CmdSetTRDeq));
-  PhyAddr              = UsbHcGetPciAddrForHostAddr (Xhc->MemPool, Urb->Ring->RingEnqueue, sizeof (CMD_SET_TR_DEQ_POINTER), TRUE);
+  PhyAddr              = UsbHcGetPciAddrForHostAddr (Xhc->MemPool, Urb->Ring->RingEnqueue, sizeof (CMD_SET_TR_DEQ_POINTER), FALSE);
   CmdSetTRDeq.PtrLo    = XHC_LOW_32BIT (PhyAddr) | Urb->Ring->RingPCS;
   CmdSetTRDeq.PtrHi    = XHC_HIGH_32BIT (PhyAddr);
   CmdSetTRDeq.CycleBit = 1;
@@ -3552,7 +3571,7 @@ XhcSetTrDequeuePointer (
                            XHC_GENERIC_TIMEOUT,
                            (TRB_TEMPLATE **)(UINTN)&EvtTrb
                            );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcSetTrDequeuePointer: Set TR Dequeue Pointer Failed, Status = %r\n", Status));
   }
 
@@ -3601,6 +3620,7 @@ XhcSetInterface (
   EVT_TRB_COMMAND_COMPLETION  *EvtTrb;
 
   Status = EFI_SUCCESS;
+  EvtTrb = NULL;
 
   InputContext  = Xhc->UsbDevContext[SlotId].InputContext;
   OutputContext = Xhc->UsbDevContext[SlotId].OutputContext;
@@ -3624,7 +3644,7 @@ XhcSetInterface (
   IfDescActive = NULL;
   IfDescSet    = NULL;
 
-  IfDesc = (USB_INTERFACE_DESCRIPTOR *)(ConfigDesc + 1);
+  IfDesc = (USB_INTERFACE_DESCRIPTOR *)((UINTN)ConfigDesc + ConfigDesc->Length);
   while ((UINTN)IfDesc < ((UINTN)ConfigDesc + ConfigDesc->TotalLength)) {
     if ((IfDesc->DescriptorType == USB_DESC_TYPE_INTERFACE) && (IfDesc->Length >= sizeof (USB_INTERFACE_DESCRIPTOR))) {
       if (IfDesc->InterfaceNumber == (UINT8)Request->Index) {
@@ -3752,7 +3772,7 @@ XhcSetInterface (
                XHC_GENERIC_TIMEOUT,
                (TRB_TEMPLATE **)(UINTN)&EvtTrb
                );
-    if (EFI_ERROR (Status)) {
+    if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
       DEBUG ((DEBUG_ERROR, "SetInterface: Config Endpoint Failed, Status = %r\n", Status));
     } else {
       //
@@ -3807,6 +3827,7 @@ XhcSetInterface64 (
   EVT_TRB_COMMAND_COMPLETION  *EvtTrb;
 
   Status = EFI_SUCCESS;
+  EvtTrb = NULL;
 
   InputContext  = Xhc->UsbDevContext[SlotId].InputContext;
   OutputContext = Xhc->UsbDevContext[SlotId].OutputContext;
@@ -3830,7 +3851,7 @@ XhcSetInterface64 (
   IfDescActive = NULL;
   IfDescSet    = NULL;
 
-  IfDesc = (USB_INTERFACE_DESCRIPTOR *)(ConfigDesc + 1);
+  IfDesc = (USB_INTERFACE_DESCRIPTOR *)((UINTN)ConfigDesc + ConfigDesc->Length);
   while ((UINTN)IfDesc < ((UINTN)ConfigDesc + ConfigDesc->TotalLength)) {
     if ((IfDesc->DescriptorType == USB_DESC_TYPE_INTERFACE) && (IfDesc->Length >= sizeof (USB_INTERFACE_DESCRIPTOR))) {
       if (IfDesc->InterfaceNumber == (UINT8)Request->Index) {
@@ -3958,7 +3979,7 @@ XhcSetInterface64 (
                XHC_GENERIC_TIMEOUT,
                (TRB_TEMPLATE **)(UINTN)&EvtTrb
                );
-    if (EFI_ERROR (Status)) {
+    if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
       DEBUG ((DEBUG_ERROR, "SetInterface64: Config Endpoint Failed, Status = %r\n", Status));
     } else {
       //
@@ -3998,6 +4019,8 @@ XhcEvaluateContext (
 
   ASSERT (Xhc->UsbDevContext[SlotId].SlotId != 0);
 
+  EvtTrb = NULL;
+
   //
   // 4.6.7 Evaluate Context
   //
@@ -4025,7 +4048,7 @@ XhcEvaluateContext (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcEvaluateContext: Evaluate Context Failed, Status = %r\n", Status));
   }
 
@@ -4059,6 +4082,8 @@ XhcEvaluateContext64 (
 
   ASSERT (Xhc->UsbDevContext[SlotId].SlotId != 0);
 
+  EvtTrb = NULL;
+
   //
   // 4.6.7 Evaluate Context
   //
@@ -4086,7 +4111,7 @@ XhcEvaluateContext64 (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcEvaluateContext64: Evaluate Context Failed, Status = %r\n", Status));
   }
 
@@ -4122,6 +4147,7 @@ XhcConfigHubContext (
   EFI_PHYSICAL_ADDRESS        PhyAddr;
 
   ASSERT (Xhc->UsbDevContext[SlotId].SlotId != 0);
+  EvtTrb        = NULL;
   InputContext  = Xhc->UsbDevContext[SlotId].InputContext;
   OutputContext = Xhc->UsbDevContext[SlotId].OutputContext;
 
@@ -4155,7 +4181,7 @@ XhcConfigHubContext (
              XHC_GENERIC_TIMEOUT,
              (TRB_TEMPLATE **)(UINTN)&EvtTrb
              );
-  if (EFI_ERROR (Status)) {
+  if (EFI_ERROR (Status) || (EvtTrb == NULL)) {
     DEBUG ((DEBUG_ERROR, "XhcConfigHubContext: Config Endpoint Failed, Status = %r\n", Status));
   }
 

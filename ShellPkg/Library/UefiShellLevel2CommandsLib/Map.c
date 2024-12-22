@@ -82,7 +82,11 @@ SearchList (
        )
   {
     TempList = StrnCatGrow (&TempList, NULL, ListWalker, 0);
-    ASSERT (TempList != NULL);
+    if (TempList == NULL) {
+      ASSERT (TempList != NULL);
+      return (FALSE);
+    }
+
     TempSpot = StrStr (TempList, Target);
     if (TempSpot != NULL) {
       *TempSpot = CHAR_NULL;
@@ -1354,7 +1358,7 @@ ShellCommandRunMap (
                                 SName,
                                 TRUE
                                 );
-              } // we were sucessful so do an output
+              } // we were successful so do an output
             }
           } // got a valid map target
         } // got 2 variables

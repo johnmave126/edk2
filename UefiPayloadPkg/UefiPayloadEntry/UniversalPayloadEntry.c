@@ -111,10 +111,12 @@ AddNewHob (
   }
 
   NewHob.Header = CreateHob (Hob->Header->HobType, Hob->Header->HobLength);
-
-  if (NewHob.Header != NULL) {
-    CopyMem (NewHob.Header + 1, Hob->Header + 1, Hob->Header->HobLength - sizeof (EFI_HOB_GENERIC_HEADER));
+  ASSERT (NewHob.Header != NULL);
+  if (NewHob.Header == NULL) {
+    return;
   }
+
+  CopyMem (NewHob.Header + 1, Hob->Header + 1, Hob->Header->HobLength - sizeof (EFI_HOB_GENERIC_HEADER));
 }
 
 /**
@@ -483,12 +485,6 @@ _ModuleEntryPoint (
   FixUpPcdDatabase (DxeFv);
   Status = UniversalLoadDxeCore (DxeFv, &DxeCoreEntryPoint);
   ASSERT_EFI_ERROR (Status);
-
-  //
-  // Mask off all legacy 8259 interrupt sources
-  //
-  IoWrite8 (LEGACY_8259_MASK_REGISTER_MASTER, 0xFF);
-  IoWrite8 (LEGACY_8259_MASK_REGISTER_SLAVE, 0xFF);
 
   Hob.HandoffInformationTable = (EFI_HOB_HANDOFF_INFO_TABLE *)GetFirstHob (EFI_HOB_TYPE_HANDOFF);
   HandOffToDxeCore (DxeCoreEntryPoint, Hob);

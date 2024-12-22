@@ -19,7 +19,7 @@
 #include <Library/TdxLib.h>
 #include <Library/TdxMailboxLib.h>
 #include <Library/SynchronizationLib.h>
-#include <Pi/PrePiHob.h>
+#include <Pi/PiHob.h>
 #include <WorkArea.h>
 #include <ConfidentialComputingGuestAttr.h>
 #include <Library/TdxHelperLib.h>
@@ -351,7 +351,7 @@ AcceptMemoryForAPsStack (
     if (Hob.Header->HobType == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) {
       DEBUG ((DEBUG_INFO, "\nResourceType: 0x%x\n", Hob.ResourceDescriptor->ResourceType));
 
-      if (Hob.ResourceDescriptor->ResourceType == BZ3937_EFI_RESOURCE_MEMORY_UNACCEPTED) {
+      if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_UNACCEPTED) {
         ResourceLength = Hob.ResourceDescriptor->ResourceLength;
         PhysicalStart  = Hob.ResourceDescriptor->PhysicalStart;
         PhysicalEnd    = PhysicalStart + ResourceLength;
@@ -427,7 +427,7 @@ AcceptMemory (
   //
   while (!END_OF_HOB_LIST (Hob)) {
     if (Hob.Header->HobType == EFI_HOB_TYPE_RESOURCE_DESCRIPTOR) {
-      if (Hob.ResourceDescriptor->ResourceType == BZ3937_EFI_RESOURCE_MEMORY_UNACCEPTED) {
+      if (Hob.ResourceDescriptor->ResourceType == EFI_RESOURCE_MEMORY_UNACCEPTED) {
         PhysicalStart = Hob.ResourceDescriptor->PhysicalStart;
         PhysicalEnd   = PhysicalStart + Hob.ResourceDescriptor->ResourceLength;
 
@@ -563,7 +563,7 @@ ValidateHobList (
     EFI_RESOURCE_MEMORY_MAPPED_IO_PORT,
     EFI_RESOURCE_MEMORY_RESERVED,
     EFI_RESOURCE_IO_RESERVED,
-    BZ3937_EFI_RESOURCE_MEMORY_UNACCEPTED
+    EFI_RESOURCE_MEMORY_UNACCEPTED
   };
 
   if (VmmHobList == NULL) {
@@ -643,6 +643,8 @@ ValidateHobList (
                                                             EFI_RESOURCE_ATTRIBUTE_PERSISTABLE |
                                                             EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTED |
                                                             EFI_RESOURCE_ATTRIBUTE_READ_ONLY_PROTECTABLE |
+                                                            EFI_RESOURCE_ATTRIBUTE_ENCRYPTED|
+                                                            EFI_RESOURCE_ATTRIBUTE_SPECIAL_PURPOSE |
                                                             EFI_RESOURCE_ATTRIBUTE_MORE_RELIABLE))) != 0)
         {
           DEBUG ((DEBUG_ERROR, "HOB: Unknow ResourceDescriptor ResourceAttribute type. Type: 0x%08x\n", Hob.ResourceDescriptor->ResourceAttribute));
@@ -805,58 +807,6 @@ TdxHelperProcessTdHob (
 }
 
 /**
- * Calculate the sha384 of input Data and extend it to RTMR register.
- *
- * @param RtmrIndex       Index of the RTMR register
- * @param DataToHash      Data to be hashed
- * @param DataToHashLen   Length of the data
- * @param Digest          Hash value of the input data
- * @param DigestLen       Length of the hash value
- *
- * @retval EFI_SUCCESS    Successfully hash and extend to RTMR
- * @retval Others         Other errors as indicated
- */
-STATIC
-EFI_STATUS
-HashAndExtendToRtmr (
-  IN UINT32  RtmrIndex,
-  IN VOID    *DataToHash,
-  IN UINTN   DataToHashLen,
-  OUT UINT8  *Digest,
-  IN  UINTN  DigestLen
-  )
-{
-  EFI_STATUS  Status;
-
-  if ((DataToHash == NULL) || (DataToHashLen == 0)) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  if ((Digest == NULL) || (DigestLen != SHA384_DIGEST_SIZE)) {
-    return EFI_INVALID_PARAMETER;
-  }
-
-  //
-  // Calculate the sha384 of the data
-  //
-  if (!Sha384HashAll (DataToHash, DataToHashLen, Digest)) {
-    return EFI_ABORTED;
-  }
-
-  //
-  // Extend to RTMR
-  //
-  Status = TdExtendRtmr (
-             (UINT32 *)Digest,
-             SHA384_DIGEST_SIZE,
-             (UINT8)RtmrIndex
-             );
-
-  ASSERT (!EFI_ERROR (Status));
-  return Status;
-}
-
-/**
   In Tdx guest, TdHob is passed from host VMM to guest firmware and it contains
   the information of the memory resource. From the security perspective before
   it is consumed, it should be measured and extended.
@@ -886,7 +836,7 @@ TdxHelperMeasureTdHob (
     Hob.Raw = GET_NEXT_HOB (Hob);
   }
 
-  Status = HashAndExtendToRtmr (
+  Status = TdxHelperHashAndExtendToRtmr (
              0,
              (UINT8 *)TdHob,
              (UINTN)((UINT8 *)Hob.Raw - (UINT8 *)TdHob),
@@ -931,7 +881,7 @@ TdxHelperMeasureCfvImage (
   UINT8           Digest[SHA384_DIGEST_SIZE];
   OVMF_WORK_AREA  *WorkArea;
 
-  Status = HashAndExtendToRtmr (
+  Status = TdxHelperHashAndExtendToRtmr (
              0,
              (UINT8 *)(UINTN)PcdGet32 (PcdOvmfFlashNvStorageVariableBase),
              (UINT64)PcdGet32 (PcdCfvRawDataSize),

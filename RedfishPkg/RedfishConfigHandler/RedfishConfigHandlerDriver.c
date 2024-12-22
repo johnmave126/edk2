@@ -412,7 +412,7 @@ AcquireRedfishServiceOnNetworkInterfaceCallback (
         EFI_ERROR (ThisRedfishDiscoveredToken->DiscoverList.RedfishInstances->Status))
     {
       gBS->CloseEvent (ThisRedfishDiscoveredToken->Event);
-      DEBUG ((DEBUG_ERROR, "%a: Free Redfish discovered token - %x.\n", __func__, ThisRedfishDiscoveredToken));
+      DEBUG ((DEBUG_MANAGEABILITY, "%a: Free Redfish discovered token - %x.\n", __func__, ThisRedfishDiscoveredToken));
       FreePool (ThisRedfishDiscoveredToken);
     }
 
@@ -601,11 +601,17 @@ RedfishConfigHandlerDriverEntryPoint (
   //
   // Install UEFI Driver Model protocol(s).
   //
-  Status = EfiLibInstallDriverBinding (
+  Status = EfiLibInstallAllDriverProtocols2 (
              ImageHandle,
              SystemTable,
              &gRedfishConfigDriverBinding,
-             ImageHandle
+             ImageHandle,
+             &gRedfishConfigHandlerComponentName,
+             &gRedfishConfigHandlerComponentName2,
+             NULL,
+             NULL,
+             NULL,
+             NULL
              );
   if (EFI_ERROR (Status)) {
     gBS->CloseEvent (gEndOfDxeEvent);

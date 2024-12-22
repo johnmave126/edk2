@@ -28,15 +28,15 @@ __version__ = "%prog Version " + __version_number__
 __copyright__ = "Copyright (c) 2007-2018, Intel Corporation. All rights reserved."
 
 ## Regular expression for matching Line Control directive like "#line xxx"
-gLineControlDirective = re.compile('^\s*#(?:line)?\s+([0-9]+)\s+"*([^"]*)"')
+gLineControlDirective = re.compile(r'^\s*#(?:line)?\s+([0-9]+)\s+"*([^"]*)"')
 ## Regular expression for matching "typedef struct"
-gTypedefPattern = re.compile("^\s*typedef\s+struct(\s+\w+)?\s*[{]*$", re.MULTILINE)
+gTypedefPattern = re.compile(r"^\s*typedef\s+struct(\s+\w+)?\s*[{]*$", re.MULTILINE)
 ## Regular expression for matching "#pragma pack"
-gPragmaPattern = re.compile("^\s*#pragma\s+pack", re.MULTILINE)
+gPragmaPattern = re.compile(r"^\s*#pragma\s+pack", re.MULTILINE)
 ## Regular expression for matching "typedef"
-gTypedef_SinglePattern = re.compile("^\s*typedef", re.MULTILINE)
+gTypedef_SinglePattern = re.compile(r"^\s*typedef", re.MULTILINE)
 ## Regular expression for matching "typedef struct, typedef union, struct, union"
-gTypedef_MulPattern = re.compile("^\s*(typedef)?\s+(struct|union)(\s+\w+)?\s*[{]*$", re.MULTILINE)
+gTypedef_MulPattern = re.compile(r"^\s*(typedef)?\s+(struct|union)(\s+\w+)?\s*[{]*$", re.MULTILINE)
 
 #
 # The following number pattern match will only match if following criteria is met:
@@ -44,14 +44,14 @@ gTypedef_MulPattern = re.compile("^\s*(typedef)?\s+(struct|union)(\s+\w+)?\s*[{]
 # as the pattern is greedily match, so it is ok for the gDecNumberPattern or gHexNumberPattern to grab the maximum match
 #
 ## Regular expression for matching HEX number
-gHexNumberPattern = re.compile("(?<=[^a-zA-Z0-9_])(0[xX])([0-9a-fA-F]+)(U(?=$|[^a-zA-Z0-9_]))?")
+gHexNumberPattern = re.compile(r"(?<=[^a-zA-Z0-9_])(0[xX])([0-9a-fA-F]+)(U(?=$|[^a-zA-Z0-9_]))?")
 ## Regular expression for matching decimal number with 'U' postfix
-gDecNumberPattern = re.compile("(?<=[^a-zA-Z0-9_])([0-9]+)U(?=$|[^a-zA-Z0-9_])")
+gDecNumberPattern = re.compile(r"(?<=[^a-zA-Z0-9_])([0-9]+)U(?=$|[^a-zA-Z0-9_])")
 ## Regular expression for matching constant with 'ULL' 'LL' postfix
-gLongNumberPattern = re.compile("(?<=[^a-zA-Z0-9_])(0[xX][0-9a-fA-F]+|[0-9]+)U?LL(?=$|[^a-zA-Z0-9_])")
+gLongNumberPattern = re.compile(r"(?<=[^a-zA-Z0-9_])(0[xX][0-9a-fA-F]+|[0-9]+)U?LL(?=$|[^a-zA-Z0-9_])")
 
 ## Regular expression for matching "Include ()" in asl file
-gAslIncludePattern = re.compile("^(\s*)[iI]nclude\s*\(\"?([^\"\(\)]+)\"\)", re.MULTILINE)
+gAslIncludePattern = re.compile(r"^(\s*)[iI]nclude\s*\(\"?([^\"\(\)]+)\"\)", re.MULTILINE)
 ## Regular expression for matching C style #include "XXX.asl" in asl file
 gAslCIncludePattern = re.compile(r'^(\s*)#include\s*[<"]\s*([-\\/\w.]+)\s*([>"])', re.MULTILINE)
 ## Patterns used to convert EDK conventions to EDK2 ECP conventions
@@ -248,6 +248,23 @@ def TrimPreprocessedVfr(Source, Target):
     except:
         EdkLogger.error("Trim", FILE_OPEN_FAILURE, ExtraData=Target)
 
+# Create a banner to indicate the start and
+# end of the included ASL file. Banner looks like:-
+#
+#   /*************************************
+#   *               @param               *
+#   *************************************/
+#
+# @param Pathname       File pathname to be included in the banner
+#
+def AddIncludeHeader(Pathname):
+    StartLine = "/*" + '*' * (len(Pathname) + 4)
+    EndLine = '*' * (len(Pathname) + 4) + "*/"
+    Banner = '\n' + StartLine
+    Banner += '\n' + ('{0}  {1}  {0}'.format('*', Pathname))
+    Banner += '\n' + EndLine + '\n'
+    return Banner
+
 ## Read the content  ASL file, including ASL included, recursively
 #
 # @param  Source            File to be read
@@ -276,16 +293,18 @@ def DoInclude(Source, Indent='', IncludePathList=[], LocalSearchPath=None, Inclu
                 try:
                     with open(IncludeFile, "r") as File:
                         F = File.readlines()
-                except:
+                except Exception:
                     with codecs.open(IncludeFile, "r", encoding='utf-8') as File:
                         F = File.readlines()
                 break
         else:
-            EdkLogger.error("Trim", "Failed to find include file %s" % Source)
+            EdkLogger.error("Trim", FILE_NOT_FOUND, ExtraData="Failed to find include file %s" % Source)
             return []
-    except:
-        EdkLogger.error("Trim", FILE_OPEN_FAILURE, ExtraData=Source)
-        return []
+    except Exception as e:
+        if str(e) == str(FILE_NOT_FOUND):
+            raise
+        else:
+            EdkLogger.error("Trim", FILE_OPEN_FAILURE, ExtraData=Source)
 
 
     # avoid A "include" B and B "include" A
@@ -312,7 +331,9 @@ def DoInclude(Source, Indent='', IncludePathList=[], LocalSearchPath=None, Inclu
                     LocalSearchPath = os.path.dirname(IncludeFile)
             CurrentIndent = Indent + Result[0][0]
             IncludedFile = Result[0][1]
+            NewFileContent.append(AddIncludeHeader(IncludedFile+" --START"))
             NewFileContent.extend(DoInclude(IncludedFile, CurrentIndent, IncludePathList, LocalSearchPath,IncludeFileList,filetype))
+            NewFileContent.append(AddIncludeHeader(IncludedFile+" --END"))
             NewFileContent.append("\n")
         elif filetype == "ASM":
             Result = gIncludePattern.findall(Line)
@@ -324,7 +345,9 @@ def DoInclude(Source, Indent='', IncludePathList=[], LocalSearchPath=None, Inclu
 
             IncludedFile = IncludedFile.strip()
             IncludedFile = os.path.normpath(IncludedFile)
+            NewFileContent.append(AddIncludeHeader(IncludedFile+" --START"))
             NewFileContent.extend(DoInclude(IncludedFile, '', IncludePathList, LocalSearchPath,IncludeFileList,filetype))
+            NewFileContent.append(AddIncludeHeader(IncludedFile+" --END"))
             NewFileContent.append("\n")
 
     gIncludedAslFile.pop()

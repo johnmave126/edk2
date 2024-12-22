@@ -17,7 +17,7 @@
 #include <IndustryStandard/Tdx.h>
 #include <IndustryStandard/IntelTdx.h>
 #include <Library/PeiServicesLib.h>
-#include <Pi/PrePiHob.h>
+#include <Pi/PiHob.h>
 #include <WorkArea.h>
 #include <ConfidentialComputingGuestAttr.h>
 
@@ -40,9 +40,9 @@ BuildResourceDescriptorHobForUnacceptedMemory (
   EFI_RESOURCE_ATTRIBUTE_TYPE  ResourceAttribute;
   UINT64                       MaxAcceptedMemoryAddress;
 
-  ASSERT (Hob->ResourceType == BZ3937_EFI_RESOURCE_MEMORY_UNACCEPTED);
+  ASSERT (Hob->ResourceType == EFI_RESOURCE_MEMORY_UNACCEPTED);
 
-  ResourceType      = BZ3937_EFI_RESOURCE_MEMORY_UNACCEPTED;
+  ResourceType      = EFI_RESOURCE_MEMORY_UNACCEPTED;
   ResourceAttribute = Hob->ResourceAttribute;
   PhysicalStart     = Hob->PhysicalStart;
   ResourceLength    = Hob->ResourceLength;
@@ -104,7 +104,7 @@ TransferTdxHobList (
         ResourceType      = Hob.ResourceDescriptor->ResourceType;
         ResourceAttribute = Hob.ResourceDescriptor->ResourceAttribute;
 
-        if (ResourceType == BZ3937_EFI_RESOURCE_MEMORY_UNACCEPTED) {
+        if (ResourceType == EFI_RESOURCE_MEMORY_UNACCEPTED) {
           BuildResourceDescriptorHobForUnacceptedMemory (Hob.ResourceDescriptor);
         } else {
           BuildResourceDescriptorHob (
@@ -152,6 +152,18 @@ PlatformTdxPublishRamRegions (
   }
 
   TransferTdxHobList ();
+
+  //
+  // Reserve the initial page tables built by the reset vector code.
+  //
+  // Since this memory range will be used by APs on Mailbox
+  // wakeup, it must be reserved as ACPI NVS.
+  //
+  BuildMemoryAllocationHob (
+    (EFI_PHYSICAL_ADDRESS)(UINTN)PcdGet32 (PcdOvmfSecPageTablesBase),
+    (UINT64)(UINTN)PcdGet32 (PcdOvmfSecPageTablesSize),
+    EfiACPIMemoryNVS
+    );
 
   //
   // The memory region defined by PcdOvmfSecGhcbBackupBase is pre-allocated by

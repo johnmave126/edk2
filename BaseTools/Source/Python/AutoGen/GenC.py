@@ -21,6 +21,9 @@ from .StrGather import *
 from .GenPcdDb import CreatePcdDatabaseCode
 from .IdfClassObject import *
 
+import json
+import secrets
+
 ## PCD type string
 gItemTypeStringDatabase  = {
     TAB_PCDS_FEATURE_FLAG       :   TAB_PCDS_FIXED_AT_BUILD,
@@ -1371,6 +1374,14 @@ def CreateLibraryConstructorCode(Info, AutoGenC, AutoGenH):
     else:
         if Info.ModuleType in [SUP_MODULE_BASE, SUP_MODULE_SEC, SUP_MODULE_USER_DEFINED, SUP_MODULE_HOST_APPLICATION]:
             AutoGenC.Append(gLibraryString[SUP_MODULE_BASE].Replace(Dict))
+            if Info.ModuleType == SUP_MODULE_SEC and Info.AutoGenVersion >= 0x0001001E:
+                AutoGenH.Append(("\n"
+                                 "// ProcessLibraryConstructorList() declared here because SEC has no standard entry point.\n"
+                                 "VOID\n"
+                                 "EFIAPI\n"
+                                 "ProcessLibraryConstructorList (\n"
+                                 "  VOID\n"
+                                 "  );\n"))
         elif Info.ModuleType in SUP_MODULE_SET_PEI:
             AutoGenC.Append(gLibraryString['PEI'].Replace(Dict))
         elif Info.ModuleType in [SUP_MODULE_DXE_CORE, SUP_MODULE_DXE_DRIVER, SUP_MODULE_DXE_SMM_DRIVER, SUP_MODULE_DXE_RUNTIME_DRIVER,
@@ -2030,6 +2041,34 @@ def CreateFooterCode(Info, AutoGenC, AutoGenH):
 #
 def CreateCode(Info, AutoGenC, AutoGenH, StringH, UniGenCFlag, UniGenBinBuffer, StringIdf, IdfGenCFlag, IdfGenBinBuffer):
     CreateHeaderCode(Info, AutoGenC, AutoGenH)
+
+    # The only 32 bit archs we have are IA32 and ARM, everything else is 64 bit
+    Bitwidth = 32 if Info.Arch == 'IA32' or Info.Arch == 'ARM' else 64
+
+    if GlobalData.gStackCookieValues64 == [] and os.path.exists(os.path.join(Info.PlatformInfo.BuildDir, "StackCookieValues64.json")):
+        with open (os.path.join(Info.PlatformInfo.BuildDir, "StackCookieValues64.json"), "r") as file:
+            GlobalData.gStackCookieValues64 = json.load(file)
+    if GlobalData.gStackCookieValues32 == [] and os.path.exists(os.path.join(Info.PlatformInfo.BuildDir, "StackCookieValues32.json")):
+        with open (os.path.join(Info.PlatformInfo.BuildDir, "StackCookieValues32.json"), "r") as file:
+            GlobalData.gStackCookieValues32 = json.load(file)
+
+    try:
+        if Bitwidth == 32:
+            CookieValue = int(GlobalData.gStackCookieValues32[hash(Info.Guid) % len(GlobalData.gStackCookieValues32)])
+        else:
+            CookieValue = int(GlobalData.gStackCookieValues64[hash(Info.Guid) % len(GlobalData.gStackCookieValues64)])
+    except:
+        EdkLogger.warn("build", "Failed to get Stack Cookie Value List! Generating random value.", ExtraData="[%s]" % str(Info))
+        if Bitwidth == 32:
+            CookieValue = secrets.randbelow (0xFFFFFFFF)
+        else:
+            CookieValue = secrets.randbelow (0xFFFFFFFFFFFFFFFF)
+
+    AutoGenH.Append((
+        '#define STACK_COOKIE_VALUE 0x%XULL\n' % CookieValue
+        if Bitwidth == 64 else
+        '#define STACK_COOKIE_VALUE 0x%X\n' % CookieValue
+    ))
 
     CreateGuidDefinitionCode(Info, AutoGenC, AutoGenH)
     CreateProtocolDefinitionCode(Info, AutoGenC, AutoGenH)

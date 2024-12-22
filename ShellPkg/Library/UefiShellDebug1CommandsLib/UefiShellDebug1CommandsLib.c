@@ -33,7 +33,7 @@ ShellCommandGetManFileNameDebug1 (
   @param ImageHandle    the image handle of the process
   @param SystemTable    the EFI System Table pointer
 
-  @retval EFI_SUCCESS        the shell command handlers were installed sucessfully
+  @retval EFI_SUCCESS        the shell command handlers were installed successfully
   @retval EFI_UNSUPPORTED    the shell level required was not found.
 **/
 EFI_STATUS
@@ -269,6 +269,10 @@ EditGetDefaultFileName (
 
   do {
     FileNameTmp = CatSPrint (NULL, L"NewFile%d.%s", Suffix, Extension);
+    if (FileNameTmp == NULL) {
+      ASSERT (FileNameTmp != NULL);
+      return NULL;
+    }
 
     //
     // after that filename changed to path

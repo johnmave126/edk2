@@ -201,7 +201,7 @@ READ_LOCK_STATUS   = TRUE
   #
   # PCI support
   #
-  INF ArmPkg/Drivers/ArmPciCpuIo2Dxe/ArmPciCpuIo2Dxe.inf
+  INF UefiCpuPkg/CpuMmio2Dxe/CpuMmio2Dxe.inf
   INF MdeModulePkg/Bus/Pci/PciHostBridgeDxe/PciHostBridgeDxe.inf
   INF MdeModulePkg/Bus/Pci/PciBusDxe/PciBusDxe.inf
   INF OvmfPkg/PciHotPlugInitDxe/PciHotPlugInit.inf
@@ -236,7 +236,7 @@ READ_STATUS        = TRUE
 READ_LOCK_CAP      = TRUE
 READ_LOCK_STATUS   = TRUE
 
-  INF ArmPlatformPkg/PrePeiCore/PrePeiCoreUniCore.inf
+  INF ArmPlatformPkg/Sec/Sec.inf
   INF MdeModulePkg/Core/Pei/PeiMain.inf
   INF ArmPlatformPkg/PlatformPei/PlatformPeim.inf
   INF ArmPlatformPkg/MemoryInitPei/MemoryInitPeim.inf

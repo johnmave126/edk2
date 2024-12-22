@@ -95,6 +95,13 @@ TerminalConInReset (
       );
   }
 
+  if (!EFI_ERROR (Status)) {
+    Status = TerminalDevice->SerialIo->SetControl (TerminalDevice->SerialIo, EFI_SERIAL_DATA_TERMINAL_READY|EFI_SERIAL_REQUEST_TO_SEND);
+    if (Status == EFI_UNSUPPORTED) {
+      Status = EFI_SUCCESS;
+    }
+  }
+
   return Status;
 }
 
@@ -109,6 +116,8 @@ TerminalConInReset (
   @retval EFI_SUCCESS         The keystroke information is returned successfully.
   @retval EFI_NOT_READY       There is no keystroke data available.
   @retval EFI_DEVICE_ERROR    The dependent serial device encounters error.
+  @retval EFI_UNSUPPORTED     The device does not support the ability to read
+                              keystroke data.
 
 **/
 EFI_STATUS
@@ -237,6 +246,8 @@ TerminalConInResetEx (
   @retval EFI_DEVICE_ERROR         The keystroke information was not returned due
                                    to hardware errors.
   @retval EFI_INVALID_PARAMETER    KeyData is NULL.
+  @retval EFI_UNSUPPORTED          The device does not support the ability to read
+                                   keystroke data.
 
 **/
 EFI_STATUS
@@ -1309,8 +1320,8 @@ UnicodeToEfiKeyFlushState (
 Putty function key map:
   +=========+======+===========+=============+=============+=============+=========+
   |         | EFI  |           |             |             |             |         |
-  |         | Scan |           |             |  Normal     |             |         |
-  |   KEY   | Code |  VT100+   | Xterm R6    |  VT400      | Linux       | SCO     |
+  |         | Scan |  VT100+   |             |  Normal     |             |         |
+  |   KEY   | Code |  VTUTF8   | Xterm R6    |  VT400      | Linux       | SCO     |
   +=========+======+===========+=============+=============+=============+=========+
   | F1      | 0x0B | ESC O P   | ESC O P     | ESC [ 1 1 ~ | ESC [ [ A   | ESC [ M |
   | F2      | 0x0C | ESC O Q   | ESC O Q     | ESC [ 1 2 ~ | ESC [ [ B   | ESC [ N |
@@ -1387,7 +1398,8 @@ UnicodeToEfiKey (
         if ((UnicodeChar == 'O') && ((TerminalDevice->TerminalType == TerminalTypeVt100) ||
                                      (TerminalDevice->TerminalType == TerminalTypeTtyTerm) ||
                                      (TerminalDevice->TerminalType == TerminalTypeXtermR6) ||
-                                     (TerminalDevice->TerminalType == TerminalTypeVt100Plus)))
+                                     (TerminalDevice->TerminalType == TerminalTypeVt100Plus) ||
+                                     (TerminalDevice->TerminalType == TerminalTypeVtUtf8)))
         {
           TerminalDevice->InputState |= INPUT_STATE_O;
           TerminalDevice->ResetState  = RESET_STATE_DEFAULT;
@@ -1561,7 +1573,9 @@ UnicodeToEfiKey (
               Key.ScanCode = SCAN_END;
               break;
           }
-        } else if (TerminalDevice->TerminalType == TerminalTypeVt100Plus) {
+        } else if ((TerminalDevice->TerminalType == TerminalTypeVt100Plus) ||
+                   (TerminalDevice->TerminalType == TerminalTypeVtUtf8))
+        {
           switch (UnicodeChar) {
             case 'P':
               Key.ScanCode = SCAN_F1;

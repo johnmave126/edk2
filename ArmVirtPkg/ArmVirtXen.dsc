@@ -23,9 +23,9 @@
   SKUID_IDENTIFIER               = DEFAULT
   FLASH_DEFINITION               = ArmVirtPkg/ArmVirtXen.fdf
 
-!include ArmVirtPkg/ArmVirt.dsc.inc
-
 !include MdePkg/MdeLibs.dsc.inc
+
+!include ArmVirtPkg/ArmVirt.dsc.inc
 
 [LibraryClasses]
   SerialPortLib|OvmfPkg/Library/XenConsoleSerialPortLib/XenConsoleSerialPortLib.inf
@@ -86,11 +86,6 @@
   # Size of the region used by UEFI in permanent memory (Reserved 64MB)
   gArmPlatformTokenSpaceGuid.PcdSystemMemoryUefiRegionSize|0x04000000
 
-  #
-  # ARM Virtual Architectural Timer
-  #
-  gArmTokenSpaceGuid.PcdArmArchTimerFreqInHz|0
-
   gEfiMdeModulePkgTokenSpaceGuid.PcdResetOnMemoryTypeInformationChange|FALSE
   gEfiMdeModulePkgTokenSpaceGuid.PcdBootManagerMenuFile|{ 0x21, 0xaa, 0x2c, 0x46, 0x14, 0x76, 0x03, 0x45, 0x83, 0x6e, 0x8a, 0xb6, 0xf4, 0x66, 0x23, 0x31 }
 
@@ -115,7 +110,7 @@
   #
   gArmTokenSpaceGuid.PcdSystemMemoryBase|0x0
   gArmTokenSpaceGuid.PcdSystemMemorySize|0x0
-  gArmVirtTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress|0x0
+  gUefiOvmfPkgTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress|0x0
 
   gArmTokenSpaceGuid.PcdFdBaseAddress|0x0
   gArmTokenSpaceGuid.PcdFvBaseAddress|0x0
@@ -149,7 +144,7 @@
   ArmVirtPkg/PrePi/ArmVirtPrePiUniCoreRelocatable.inf {
     <LibraryClasses>
       ExtractGuidedSectionLib|EmbeddedPkg/Library/PrePiExtractGuidedSectionLib/PrePiExtractGuidedSectionLib.inf
-      LzmaDecompressLib|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
+      NULL|MdeModulePkg/Library/LzmaCustomDecompressLib/LzmaCustomDecompressLib.inf
       PrePiLib|EmbeddedPkg/Library/PrePiLib/PrePiLib.inf
       HobLib|EmbeddedPkg/Library/PrePiHobLib/PrePiHobLib.inf
       PrePiHobListPointerLib|ArmPlatformPkg/Library/PrePiHobListPointerLib/PrePiHobListPointerLib.inf

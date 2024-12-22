@@ -120,7 +120,7 @@
 [LibraryClasses]
   PcdLib|MdePkg/Library/BasePcdLibNull/BasePcdLibNull.inf
   TimerLib|MdePkg/Library/SecPeiDxeTimerLibCpu/SecPeiDxeTimerLibCpu.inf
-  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/BaseResetSystemLib.inf
+  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/BaseResetSystemLibXen.inf
   PrintLib|MdePkg/Library/BasePrintLib/BasePrintLib.inf
   BaseMemoryLib|MdePkg/Library/BaseMemoryLibRepStr/BaseMemoryLibRepStr.inf
   BaseLib|MdePkg/Library/BaseLib/BaseLib.inf
@@ -233,6 +233,7 @@
 !endif
 
 [LibraryClasses.common]
+  AmdSvsmLib|UefiCpuPkg/Library/AmdSvsmLibNull/AmdSvsmLibNull.inf
   BaseCryptLib|CryptoPkg/Library/BaseCryptLib/BaseCryptLib.inf
   CcExitLib|UefiCpuPkg/Library/CcExitLibNull/CcExitLibNull.inf
   TdxLib|MdePkg/Library/TdxLib/TdxLib.inf
@@ -301,7 +302,7 @@
 
 [LibraryClasses.common.DXE_RUNTIME_DRIVER]
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLib.inf
+  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLibXen.inf
   HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
   DxeCoreEntryPoint|MdePkg/Library/DxeCoreEntryPoint/DxeCoreEntryPoint.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
@@ -314,7 +315,7 @@
 
 [LibraryClasses.common.UEFI_DRIVER]
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLib.inf
+  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLibXen.inf
   HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
   DxeCoreEntryPoint|MdePkg/Library/DxeCoreEntryPoint/DxeCoreEntryPoint.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
@@ -325,7 +326,7 @@
 [LibraryClasses.common.DXE_DRIVER]
   AcpiPlatformLib|OvmfPkg/Library/AcpiPlatformLib/DxeAcpiPlatformLib.inf
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLib.inf
+  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLibXen.inf
   HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   ReportStatusCodeLib|MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
@@ -345,7 +346,7 @@
 
 [LibraryClasses.common.UEFI_APPLICATION]
   PcdLib|MdePkg/Library/DxePcdLib/DxePcdLib.inf
-  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLib.inf
+  ResetSystemLib|OvmfPkg/Library/ResetSystemLib/DxeResetSystemLibXen.inf
   HobLib|MdePkg/Library/DxeHobLib/DxeHobLib.inf
   MemoryAllocationLib|MdePkg/Library/UefiMemoryAllocationLib/UefiMemoryAllocationLib.inf
   ReportStatusCodeLib|MdeModulePkg/Library/DxeReportStatusCodeLib/DxeReportStatusCodeLib.inf
@@ -440,7 +441,7 @@
   #
   # Network Pcds
   #
-!include NetworkPkg/NetworkPcds.dsc.inc
+!include NetworkPkg/NetworkFixedPcds.dsc.inc
 
 !ifdef $(DEBUG_ON_HYPERVISOR_CONSOLE)
   ## Set Xen's debug IO port for PlatformDebugLibIoPort
@@ -641,6 +642,8 @@
   OvmfPkg/QemuVideoDxe/QemuVideoDxe.inf
   OvmfPkg/QemuRamfbDxe/QemuRamfbDxe.inf
 
+  SecurityPkg/RandomNumberGenerator/RngDxe/RngDxe.inf
+
   #
   # ISA Support
   #
@@ -665,6 +668,11 @@
   MdeModulePkg/Universal/Acpi/S3SaveStateDxe/S3SaveStateDxe.inf
   MdeModulePkg/Universal/Acpi/BootScriptExecutorDxe/BootScriptExecutorDxe.inf
   MdeModulePkg/Universal/Acpi/BootGraphicsResourceTableDxe/BootGraphicsResourceTableDxe.inf
+
+  #
+  # Hash2 Protocol producer
+  #
+  SecurityPkg/Hash2DxeCrypto/Hash2DxeCrypto.inf
 
   #
   # Network Support

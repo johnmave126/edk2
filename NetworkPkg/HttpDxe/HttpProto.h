@@ -1,8 +1,9 @@
 /** @file
   The header files of miscellaneous routines for HttpDxe driver.
 
-Copyright (c) 2015 - 2021, Intel Corporation. All rights reserved.<BR>
+Copyright (c) 2015, Intel Corporation. All rights reserved.<BR>
 (C) Copyright 2016 Hewlett Packard Enterprise Development LP<BR>
+Copyright (C) 2024 Advanced Micro Devices, Inc. All rights reserved.<BR>
 SPDX-License-Identifier: BSD-2-Clause-Patent
 
 **/
@@ -164,6 +165,7 @@ typedef struct _HTTP_PROTOCOL {
   NET_MAP                           RxTokens;
 
   CHAR8                             *Url;
+  UINTN                             UrlLen;
 
   //
   // Https Support
@@ -171,7 +173,7 @@ typedef struct _HTTP_PROTOCOL {
   BOOLEAN                           UseHttps;
 
   EFI_SERVICE_BINDING_PROTOCOL      *TlsSb;
-  EFI_HANDLE                        TlsChildHandle; /// Tls ChildHandle
+  BOOLEAN                           TlsAlreadyCreated;
   TLS_CONFIG_DATA                   TlsConfigData;
   EFI_TLS_PROTOCOL                  *Tls;
   EFI_TLS_CONFIGURATION_PROTOCOL    *TlsConfiguration;

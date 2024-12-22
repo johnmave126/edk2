@@ -1003,8 +1003,9 @@ DevPathToTextUsbWWID (
     //
     // In case no NULL terminator in SerialNumber, create a new one with NULL terminator
     //
-    NewStr = AllocateCopyPool ((Length + 1) * sizeof (CHAR16), SerialNumberStr);
+    NewStr = AllocatePool ((Length + 1) * sizeof (CHAR16));
     ASSERT (NewStr != NULL);
+    CopyMem (NewStr, SerialNumberStr, Length * sizeof (CHAR16));
     NewStr[Length]  = 0;
     SerialNumberStr = NewStr;
   }
@@ -1841,7 +1842,11 @@ DevPathToTextUri (
   Uri       = DevPath;
   UriLength = DevicePathNodeLength (Uri) - sizeof (URI_DEVICE_PATH);
   UriStr    = AllocatePool (UriLength + 1);
-  ASSERT (UriStr != NULL);
+
+  if (UriStr == NULL) {
+    ASSERT (UriStr != NULL);
+    return;
+  }
 
   CopyMem (UriStr, Uri->Uri, UriLength);
   UriStr[UriLength] = '\0';

@@ -29,6 +29,10 @@
   ##  @libraryclass  Verify blobs read from the VMM
   BlobVerifierLib|Include/Library/BlobVerifierLib.h
 
+  ##  @libraryclass  FdtSerialPortAddressLib
+  #
+  FdtSerialPortAddressLib|Include/Library/FdtSerialPortAddressLib.h
+
   ##  @libraryclass  Loads and boots a Linux kernel image
   #
   LoadLinuxLib|Include/Library/LoadLinuxLib.h
@@ -144,6 +148,10 @@
   #
   HardwareInfoLib|Include/Library/HardwareInfoLib.h
 
+  ##  @libraryclass  CPU MMU Initialization library.
+  #
+  CpuMmuInitLib|Include/Library/CpuMmuInitLib.h
+
 [Guids]
   gUefiOvmfPkgTokenSpaceGuid            = {0x93bb96af, 0xb9f2, 0x4eb8, {0x94, 0x62, 0xe0, 0xba, 0x74, 0x56, 0x42, 0x36}}
   gEfiXenInfoGuid                       = {0xd3b46f3b, 0xd441, 0x1244, {0x9a, 0x12, 0x0, 0x12, 0x27, 0x3f, 0xc1, 0x4d}}
@@ -163,6 +171,8 @@
   gUefiOvmfPkgTdxAcpiHobGuid            = {0x6a0c5870, 0xd4ed, 0x44f4, {0xa1, 0x35, 0xdd, 0x23, 0x8b, 0x6f, 0x0c, 0x8d}}
   gEfiNonCcFvGuid                       = {0xae047c6d, 0xbce9, 0x426c, {0xae, 0x03, 0xa6, 0x8e, 0x3b, 0x8a, 0x04, 0x88}}
   gOvmfVariableGuid                     = {0x50bea1e5, 0xa2c5, 0x46e9, {0x9b, 0x3a, 0x59, 0x59, 0x65, 0x16, 0xb0, 0x0a}}
+  gQemuFirmwareResourceHobGuid          = {0x3cc47b04, 0x0d3e, 0xaa64, {0x06, 0xa6, 0x4b, 0xdc, 0x9a, 0x2c, 0x61, 0x19}}
+  gRtcRegisterBaseAddressHobGuid        = {0x40435d97, 0xeb37, 0x4a4b, {0x7f, 0xad, 0xb7, 0xed, 0x72, 0xa1, 0x43, 0xc5}}
 
 [Ppis]
   # PPI whose presence in the PPI database signals that the TPM base address
@@ -273,6 +283,11 @@
   gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecGhcbBackupBase|0|UINT32|0x44
   gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecGhcbBackupSize|0|UINT32|0x45
 
+  ## Specify the extra page table needed to mark the APIC MMIO range as unencrypted.
+  #  The value should be a multiple of 4KB for each.
+  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecApicPageTableBase|0x0|UINT32|0x72
+  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecApicPageTableSize|0x0|UINT32|0x73
+
   ## The base address and size of the SEV Launch Secret Area provisioned
   #  after remote attestation.  If this is set in the .fdf, the platform
   #  is responsible for protecting the area from DXE phase overwrites.
@@ -331,8 +346,16 @@
   #  check to decide whether to abort dispatch of the driver it is linked into.
   gUefiOvmfPkgTokenSpaceGuid.PcdEntryPointOverrideFwCfgVarName|""|VOID*|0x68
 
+  ## The default value UefiDriverEntryPointFwCfgOverrideLib will use in case
+  #  the QEMU fw_cfg variable is not present
+  gUefiOvmfPkgTokenSpaceGuid.PcdEntryPointOverrideDefaultValue|"yes"|VOID*|0x76
+
   ## Restrict boot to EFI applications in firmware volumes.
   gUefiOvmfPkgTokenSpaceGuid.PcdBootRestrictToFirmware|FALSE|BOOLEAN|0x6c
+
+  ## The base address and size of the initial SVSM Calling Area.
+  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecSvsmCaaBase|0|UINT32|0x70
+  gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecSvsmCaaSize|0|UINT32|0x71
 
 [PcdsDynamic, PcdsDynamicEx]
   gUefiOvmfPkgTokenSpaceGuid.PcdEmuVariableEvent|0|UINT64|2
@@ -386,6 +409,34 @@
   #
   gUefiOvmfPkgTokenSpaceGuid.PcdForceNoAcpi|0x0|BOOLEAN|0x69
 
+[PcdsFixedAtBuild, PcdsPatchableInModule]
+  #
+  # This is the physical address where the device tree is expected to be stored
+  # upon first entry into UEFI. This needs to be a FixedAtBuild PCD, so that we
+  # can do a first pass over the device tree in the SEC phase to discover the
+  # UART base address.
+  #
+  gUefiOvmfPkgTokenSpaceGuid.PcdDeviceTreeInitialBaseAddress|0x0|UINT64|0x6e
+
+  #
+  # Padding in bytes to add to the device tree allocation, so that the DTB can
+  # be modified in place (default: 256 bytes)
+  #
+  gUefiOvmfPkgTokenSpaceGuid.PcdDeviceTreeAllocationPadding|256|UINT32|0x6f
+
+  #
+  # Binary representation of the GUID that determines the terminal type. The
+  # size must be exactly 16 bytes. The default value corresponds to
+  # EFI_VT_100_GUID.
+  #
+  gUefiOvmfPkgTokenSpaceGuid.PcdTerminalTypeGuidBuffer|{0x65, 0x60, 0xA6, 0xDF, 0x19, 0xB4, 0xD3, 0x11, 0x9A, 0x2D, 0x00, 0x90, 0x27, 0x3F, 0xC1, 0x4D}|VOID*|0x66
+
+  ##
+  # Whether the EFI memory attributes protocol should be uninstalled before
+  # invoking the OS loader. This may be needed to work around problematic
+  # builds of shim that use the protocol incorrectly.
+  gUefiOvmfPkgTokenSpaceGuid.PcdUninstallMemAttrProtocol|FALSE|BOOLEAN|0x67
+
 [PcdsFeatureFlag]
   gUefiOvmfPkgTokenSpaceGuid.PcdQemuBootOrderPciTranslation|TRUE|BOOLEAN|0x1c
   gUefiOvmfPkgTokenSpaceGuid.PcdQemuBootOrderMmioTranslation|FALSE|BOOLEAN|0x1d
@@ -402,3 +453,8 @@
 
   ## This feature flag indicates the firmware build supports secure boot.
   gUefiOvmfPkgTokenSpaceGuid.PcdSecureBootSupported|FALSE|BOOLEAN|0x6d
+
+  ## Whether QemuVideoDxe should perform a EFI_MEMORY_WC remap of the PCI
+  #  framebuffer. This might be required on platforms that do not tolerate
+  #  misaligned accesses otherwise.
+  gUefiOvmfPkgTokenSpaceGuid.PcdRemapFrameBufferWriteCombine|FALSE|BOOLEAN|0x75

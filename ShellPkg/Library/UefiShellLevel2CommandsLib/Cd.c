@@ -14,8 +14,8 @@
 /**
   Function will replace drive identifier with CWD.
 
-  If FullPath begining with ':' is invalid path, then ASSERT.
-  If FullPath not include dirve identifier , then do nothing.
+  If FullPath beginning with ':' is invalid path, then ASSERT.
+  If FullPath not include drive identifier , then do nothing.
   If FullPath likes "fs0:\xx" or "fs0:/xx" , then do nothing.
   If FullPath likes "fs0:xxx" or "fs0:", the drive replaced by CWD.
 
@@ -304,7 +304,12 @@ ShellCommandRunCd (
 
         if (!EFI_ERROR (Status)) {
           Param1Copy = PathCleanUpDirectories (Param1Copy);
-          Status     = ExtractDriveAndPath (Param1Copy, &Drive, &Path);
+          if (Param1Copy == NULL) {
+            Status      = EFI_NOT_FOUND;
+            ShellStatus = SHELL_INVALID_PARAMETER;
+          } else {
+            Status = ExtractDriveAndPath (Param1Copy, &Drive, &Path);
+          }
         }
 
         if (!EFI_ERROR (Status) && (Drive != NULL) && (Path != NULL)) {

@@ -38,8 +38,10 @@
 #include <IndustryStandard/QemuCpuHotplug.h>
 #include <Library/MemEncryptSevLib.h>
 #include <OvmfPlatforms.h>
+#include <Library/TdxHelperLib.h>
 
 #include "Platform.h"
+#include "PlatformId.h"
 
 EFI_PEI_PPI_DESCRIPTOR  mPpiBootMode[] = {
   {
@@ -310,6 +312,10 @@ InitializePlatform (
   DEBUG ((DEBUG_INFO, "Platform PEIM Loaded\n"));
   PlatformInfoHob = BuildPlatformInfoHob ();
 
+  if (TdIsEnabled ()) {
+    TdxHelperBuildGuidHobForTdxMeasurement ();
+  }
+
   PlatformInfoHob->SmmSmramRequire     = FeaturePcdGet (PcdSmmSmramRequire);
   PlatformInfoHob->SevEsIsEnabled      = MemEncryptSevEsIsEnabled ();
   PlatformInfoHob->PcdPciMmio64Size    = PcdGet64 (PcdPciMmio64Size);
@@ -347,10 +353,6 @@ InitializePlatform (
   InitializeRamRegions (PlatformInfoHob);
 
   if (PlatformInfoHob->BootMode != BOOT_ON_S3_RESUME) {
-    if (!PlatformInfoHob->SmmSmramRequire) {
-      ReserveEmuVariableNvStore ();
-    }
-
     PeiFvInitialization (PlatformInfoHob);
     MemTypeInfoInitialization (PlatformInfoHob);
     MemMapInitialization (PlatformInfoHob);
@@ -363,10 +365,24 @@ InitializePlatform (
     MiscInitializationForMicrovm (PlatformInfoHob);
   } else {
     MiscInitialization (PlatformInfoHob);
+    PlatformIdInitialization (PeiServices);
   }
 
   IntelTdxInitialize ();
   InstallFeatureControlCallback (PlatformInfoHob);
+  if (PlatformInfoHob->SmmSmramRequire) {
+    RelocateSmBase ();
+  }
+
+  //
+  // Performed after CoCo (SEV/TDX) initialization to allow the memory
+  // used to be validated before being used.
+  //
+  if (PlatformInfoHob->BootMode != BOOT_ON_S3_RESUME) {
+    if (!PlatformInfoHob->SmmSmramRequire) {
+      ReserveEmuVariableNvStore ();
+    }
+  }
 
   return EFI_SUCCESS;
 }

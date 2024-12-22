@@ -28,6 +28,8 @@ import threading
 from linecache import getlines
 from subprocess import Popen,PIPE, STDOUT
 from collections import OrderedDict, defaultdict
+import json
+import secrets
 
 from AutoGen.PlatformAutoGen import PlatformAutoGen
 from AutoGen.ModuleAutoGen import ModuleAutoGen
@@ -281,6 +283,22 @@ def LaunchCommand(Command, WorkingDir,ModuleAuto = None):
         iau.CreateDepsInclude()
         iau.CreateDepsTarget()
     return "%dms" % (int(round((time.time() - BeginTime) * 1000)))
+
+def GenerateStackCookieValues():
+    if GlobalData.gBuildDirectory == "":
+        return
+
+    # Check if the 32 bit values array needs to be created
+    if not os.path.exists(os.path.join(GlobalData.gBuildDirectory, "StackCookieValues32.json")):
+        StackCookieValues32 = [secrets.randbelow(0xFFFFFFFF) for _ in range(0, 100)]
+        with open (os.path.join(GlobalData.gBuildDirectory, "StackCookieValues32.json"), "w") as file:
+            json.dump(StackCookieValues32, file)
+
+    # Check if the 64 bit values array needs to be created
+    if not os.path.exists(os.path.join(GlobalData.gBuildDirectory, "StackCookieValues64.json")):
+        StackCookieValues64 = [secrets.randbelow(0xFFFFFFFFFFFFFFFF) for _ in range(0, 100)]
+        with open (os.path.join(GlobalData.gBuildDirectory, "StackCookieValues64.json"), "w") as file:
+            json.dump(StackCookieValues64, file)
 
 ## The smallest unit that can be built in multi-thread build mode
 #
@@ -1263,7 +1281,7 @@ class Build():
             mqueue.put((None,None,None,None,None,None,None))
             AutoGenObject.DataPipe.DataContainer = {"CommandTarget": self.Target}
             AutoGenObject.DataPipe.DataContainer = {"Workspace_timestamp": AutoGenObject.Workspace._SrcTimeStamp}
-            AutoGenObject.CreateLibModuelDirs()
+            AutoGenObject.CreateLibModuleDirs()
             AutoGenObject.DataPipe.DataContainer = {"LibraryBuildDirectoryList":AutoGenObject.LibraryBuildDirectoryList}
             AutoGenObject.DataPipe.DataContainer = {"ModuleBuildDirectoryList":AutoGenObject.ModuleBuildDirectoryList}
             AutoGenObject.DataPipe.DataContainer = {"FdsCommandDict": AutoGenObject.Workspace.GenFdsCommandDict}
@@ -1794,6 +1812,7 @@ class Build():
                         self.UniFlag,
                         self.Progress
                         )
+                GenerateStackCookieValues()
                 self.Fdf = Wa.FdfFile
                 self.LoadFixAddress = Wa.Platform.LoadFixAddress
                 self.BuildReport.AddPlatformReport(Wa)
@@ -1897,6 +1916,7 @@ class Build():
                         self.Progress,
                         self.ModuleFile
                         )
+                GenerateStackCookieValues()
                 self.Fdf = Wa.FdfFile
                 self.LoadFixAddress = Wa.Platform.LoadFixAddress
                 Wa.CreateMakeFile(False)
@@ -2147,6 +2167,7 @@ class Build():
                 self.UniFlag,
                 self.Progress
                 )
+        GenerateStackCookieValues()
         self.Fdf = Wa.FdfFile
         self.LoadFixAddress = Wa.Platform.LoadFixAddress
         self.BuildReport.AddPlatformReport(Wa)
@@ -2179,7 +2200,7 @@ class Build():
             Pa.DataPipe.DataContainer = {"FfsCommand":CmdListDict}
             Pa.DataPipe.DataContainer = {"Workspace_timestamp": Wa._SrcTimeStamp}
             Pa.DataPipe.DataContainer = {"CommandTarget": self.Target}
-            Pa.CreateLibModuelDirs()
+            Pa.CreateLibModuleDirs()
             # Fetch the MakeFileName.
             self.MakeFileName = Pa.MakeFileName
 

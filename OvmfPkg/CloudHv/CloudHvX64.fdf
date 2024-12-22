@@ -76,7 +76,10 @@ gUefiOvmfPkgTokenSpaceGuid.PcdOvmfCpuidBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfCp
 0x00F000|0x001000
 gUefiOvmfPkgTokenSpaceGuid.PcdXenPvhStartOfDayStructPtr|gUefiOvmfPkgTokenSpaceGuid.PcdXenPvhStartOfDayStructPtrSize
 
-0x010000|0x010000
+0x010000|0x001000
+gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecApicPageTableBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecApicPageTableSize
+
+0x011000|0x00F000
 gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecPeiTempRamBase|gUefiOvmfPkgTokenSpaceGuid.PcdOvmfSecPeiTempRamSize
 
 0x020000|0x0E0000
@@ -458,7 +461,7 @@ FILE FV_IMAGE = 9E21FD93-9C72-4c15-8C4B-E77F1DB2D792 {
     VERSION   STRING="$(INF_VERSION)" Optional BUILD_NUM=$(BUILD_NUMBER)
   }
 
-[Rule.Common.SEC.RESET_VECTOR]
+[Rule.Common.USER_DEFINED.RESET_VECTOR]
   FILE RAW = $(NAMED_GUID) {
     RAW BIN   Align = 16   |.bin
   }

@@ -167,46 +167,6 @@ MigrateMemoryPages (
 }
 
 /**
-  Removes any FV HOBs whose base address is not in PEI installed memory.
-
-  @param[in] Private          Pointer to PeiCore's private data structure.
-
-**/
-VOID
-RemoveFvHobsInTemporaryMemory (
-  IN PEI_CORE_INSTANCE  *Private
-  )
-{
-  EFI_PEI_HOB_POINTERS     Hob;
-  EFI_HOB_FIRMWARE_VOLUME  *FirmwareVolumeHob;
-
-  DEBUG ((DEBUG_INFO, "Removing FVs in FV HOB not already migrated to permanent memory.\n"));
-
-  for (Hob.Raw = GetHobList (); !END_OF_HOB_LIST (Hob); Hob.Raw = GET_NEXT_HOB (Hob)) {
-    if ((GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV) || (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV2) || (GET_HOB_TYPE (Hob) == EFI_HOB_TYPE_FV3)) {
-      FirmwareVolumeHob = Hob.FirmwareVolume;
-      DEBUG ((DEBUG_INFO, "  Found FV HOB.\n"));
-      DEBUG ((
-        DEBUG_INFO,
-        "    BA=%016lx  L=%016lx\n",
-        FirmwareVolumeHob->BaseAddress,
-        FirmwareVolumeHob->Length
-        ));
-      if (
-          !(
-            ((EFI_PHYSICAL_ADDRESS)(UINTN)FirmwareVolumeHob->BaseAddress >= Private->PhysicalMemoryBegin) &&
-            (((EFI_PHYSICAL_ADDRESS)(UINTN)FirmwareVolumeHob->BaseAddress + (FirmwareVolumeHob->Length - 1)) < Private->FreePhysicalMemoryTop)
-            )
-          )
-      {
-        DEBUG ((DEBUG_INFO, "      Removing FV HOB to an FV in T-RAM (was not migrated).\n"));
-        Hob.Header->HobType = EFI_HOB_TYPE_UNUSED;
-      }
-    }
-  }
-}
-
-/**
   Migrate the base address in firmware volume allocation HOBs
   from temporary memory to PEI installed memory.
 
@@ -595,6 +555,7 @@ PeiAllocatePages (
   EFI_PHYSICAL_ADDRESS  *FreeMemoryTop;
   EFI_PHYSICAL_ADDRESS  *FreeMemoryBottom;
   UINTN                 RemainingPages;
+  UINTN                 RemainingMemory;
   UINTN                 Granularity;
   UINTN                 Padding;
 
@@ -624,7 +585,7 @@ PeiAllocatePages (
   }
 
   if ((RUNTIME_PAGE_ALLOCATION_GRANULARITY > DEFAULT_PAGE_ALLOCATION_GRANULARITY) &&
-      ((MemoryType == EfiACPIReclaimMemory) ||
+      ((MemoryType == EfiReservedMemoryType) ||
        (MemoryType == EfiACPIMemoryNVS) ||
        (MemoryType == EfiRuntimeServicesCode) ||
        (MemoryType == EfiRuntimeServicesData)))
@@ -676,24 +637,18 @@ PeiAllocatePages (
   //
   // Verify that there is sufficient memory to satisfy the allocation.
   //
-  RemainingPages = (UINTN)(*FreeMemoryTop - *FreeMemoryBottom) >> EFI_PAGE_SHIFT;
+  RemainingMemory = (UINTN)(*FreeMemoryTop - *FreeMemoryBottom);
+  RemainingPages  = (UINTN)(RShiftU64 (RemainingMemory, EFI_PAGE_SHIFT));
   //
-  // The number of remaining pages needs to be greater than or equal to that of the request pages.
+  // The number of remaining pages needs to be greater than or equal to that of
+  // the request pages. In addition, there should be enough space left to hold a
+  // Memory Allocation HOB.
   //
   Pages = ALIGN_VALUE (Pages, EFI_SIZE_TO_PAGES (Granularity));
-  if (RemainingPages < Pages) {
-    //
-    // Try to find free memory by searching memory allocation HOBs.
-    //
-    Status = FindFreeMemoryFromMemoryAllocationHob (MemoryType, Pages, Granularity, Memory);
-    if (!EFI_ERROR (Status)) {
-      return Status;
-    }
-
-    DEBUG ((DEBUG_ERROR, "AllocatePages failed: No 0x%lx Pages is available.\n", (UINT64)Pages));
-    DEBUG ((DEBUG_ERROR, "There is only left 0x%lx pages memory resource to be allocated.\n", (UINT64)RemainingPages));
-    return EFI_OUT_OF_RESOURCES;
-  } else {
+  if ((RemainingPages > Pages) ||
+      ((RemainingPages == Pages) &&
+       ((RemainingMemory & EFI_PAGE_MASK) >= sizeof (EFI_HOB_MEMORY_ALLOCATION))))
+  {
     //
     // Update the PHIT to reflect the memory usage
     //
@@ -714,6 +669,18 @@ PeiAllocatePages (
       );
 
     return EFI_SUCCESS;
+  } else {
+    //
+    // Try to find free memory by searching memory allocation HOBs.
+    //
+    Status = FindFreeMemoryFromMemoryAllocationHob (MemoryType, Pages, Granularity, Memory);
+    if (!EFI_ERROR (Status)) {
+      return Status;
+    }
+
+    DEBUG ((DEBUG_ERROR, "AllocatePages failed: No 0x%lx Pages is available.\n", (UINT64)Pages));
+    DEBUG ((DEBUG_ERROR, "There is only left 0x%lx pages memory resource to be allocated.\n", (UINT64)RemainingPages));
+    return EFI_OUT_OF_RESOURCES;
   }
 }
 
@@ -902,8 +869,6 @@ PeiAllocatePool (
              (UINT16)(sizeof (EFI_HOB_MEMORY_POOL) + Size),
              (VOID **)&Hob
              );
-  ASSERT_EFI_ERROR (Status);
-
   if (EFI_ERROR (Status)) {
     *Buffer = NULL;
   } else {
